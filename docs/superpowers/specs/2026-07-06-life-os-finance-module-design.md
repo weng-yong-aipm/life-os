@@ -105,9 +105,13 @@ public_holidays (
 )
 ```
 
-`public_holidays` is populated from the free `date.nager.at` public holiday API for
-Malaysia (`/api/v3/PublicHolidays/{year}/MY`), fetched once per calendar year (a
-"Refresh holidays" button in the OT Pay tab; no auth/key required for this API).
+`public_holidays` is seeded from a static, version-controlled `finance/malaysia-holidays.json`
+in the repo, not a live API — `date.nager.at` (the originally planned free public-holiday
+API) was checked and does **not** cover Malaysia. A static file is also arguably more
+correct here: Malaysia has state-specific holidays no free API captures anyway. The file
+ships with a best-effort 2026 national list (cross-referenced from officeholidays.com and
+calendar-malaysia.com on 2026-07-06) and a note to verify/update it yearly against an
+official source or the user's own state calendar.
 
 ## Data Flow
 
@@ -127,14 +131,16 @@ Malaysia (`/api/v3/PublicHolidays/{year}/MY`), fetched once per calendar year (a
 
 **OT Pay:**
 1. User opens the OT Pay tab, enters a date and hours worked.
-2. Client looks up the date in the locally-cached `public_holidays` table; if not a
-   holiday, checks if it's Sat/Sun for `weekend`; otherwise `workday`.
+2. Client looks up the date against the static holiday list (loaded from
+   `malaysia-holidays.json` into `public_holidays`); if not a holiday, checks if it's
+   Sat/Sun for `weekend`; otherwise `workday`.
 3. Client computes `pay = hours * base_hourly_rate * multiplier` using the day's
    multiplier from `pay_settings` (`workday` multiplier is implicitly `1`).
 4. Row saved to `work_hours`. A monthly summary view sums `computed_pay` and hours
    per `day_type`.
-5. If the holiday lookup can't run (API never refreshed / offline), the entry form
-   shows a manual "this is a public holiday" checkbox as a fallback classification.
+5. If a date isn't in the holiday list (e.g. next year's list hasn't been added yet),
+   the entry form shows a manual "this is a public holiday" checkbox as a fallback
+   classification.
 
 ## Error Handling & Security
 
@@ -149,8 +155,8 @@ Malaysia (`/api/v3/PublicHolidays/{year}/MY`), fetched once per calendar year (a
 - **Secrets:** Anthropic API key lives only as a Supabase Edge Function secret, never
   shipped to the client. Supabase anon key (safe to expose, RLS-protected) is the only
   key in client config, matching `eat-decider`'s `config.js` pattern.
-- **Public holiday API failure:** falls back to the manual checkbox described above;
-  never blocks saving an hours entry.
+- **Unlisted holiday date:** falls back to the manual checkbox described above; never
+  blocks saving an hours entry.
 
 ## Testing Plan
 
@@ -158,7 +164,7 @@ Malaysia (`/api/v3/PublicHolidays/{year}/MY`), fetched once per calendar year (a
   computed_pay`) — pure function, easy to get wrong, worth locking down with tests
   before anything else is built.
 - **Unit tests** for date → day_type classification (workday/weekend/holiday),
-  including the "holiday API not cached yet" fallback path.
+  including the "date not in the static holiday list" fallback path.
 - **Manual pass** against the deployed PWA for the receipt-scan flow (camera capture,
   parse, edit, save, dashboard update) and offline queue/sync — same verification
   style used for `eat-decider`, since the receipt/Claude round-trip isn't practical to
