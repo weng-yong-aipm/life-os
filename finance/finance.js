@@ -57,21 +57,20 @@ async function onLogHours(e) {
   const hours = parseFloat(document.getElementById('hours-worked').value);
   const manualHoliday = document.getElementById('hours-manual-holiday').checked;
 
-  const settings = await PaySettingsRepo.get();
-  const year = Number(workDate.slice(0, 4));
-  const holidaySet = holidaySetForYear(year);
-  const dayType = manualHoliday ? 'holiday' : classifyDay(workDate, holidaySet);
-  const computedPay = calculatePay({ hours, dayType, settings });
-
   try {
+    const settings = await PaySettingsRepo.get();
+    const year = Number(workDate.slice(0, 4));
+    const holidaySet = holidaySetForYear(year);
+    const dayType = manualHoliday ? 'holiday' : classifyDay(workDate, holidaySet);
+    const computedPay = calculatePay({ hours, dayType, settings });
+
     await WorkHoursRepo.create({ workDate, hours, dayType, computedPay });
+    status.textContent = `Logged: ${dayType}, pay ${computedPay.toFixed(2)} ${settings.currency}`;
+    document.getElementById('hours-form').reset();
+    refreshHoursSummary();
   } catch (err) {
     status.textContent = `Could not save (${err.message}).`;
-    return;
   }
-  status.textContent = `Logged: ${dayType}, pay ${computedPay.toFixed(2)} ${settings.currency}`;
-  document.getElementById('hours-form').reset();
-  refreshHoursSummary();
 }
 
 async function refreshHoursSummary() {
