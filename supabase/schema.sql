@@ -28,6 +28,24 @@ create table if not exists public.receipt_items (
   edited_by_user  boolean not null default false
 );
 
+create or replace function public.check_receipt_item_ownership()
+returns trigger as $$
+begin
+  if not exists (
+    select 1 from public.receipts
+    where id = new.receipt_id and user_id = new.user_id
+  ) then
+    raise exception 'receipt_id % does not belong to user_id %', new.receipt_id, new.user_id;
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists check_receipt_item_ownership_trigger on public.receipt_items;
+create trigger check_receipt_item_ownership_trigger
+  before insert or update on public.receipt_items
+  for each row execute function public.check_receipt_item_ownership();
+
 create table if not exists public.pay_settings (
   user_id             uuid primary key references auth.users(id) on delete cascade,
   base_hourly_rate    numeric not null default 0,
@@ -48,6 +66,7 @@ create table if not exists public.work_hours (
 
 create index if not exists receipts_user_id_idx on public.receipts (user_id);
 create index if not exists receipt_items_receipt_id_idx on public.receipt_items (receipt_id);
+create index if not exists receipt_items_user_id_idx on public.receipt_items (user_id);
 create index if not exists work_hours_user_id_idx on public.work_hours (user_id);
 
 alter table public.receipts enable row level security;
@@ -97,7 +116,13 @@ on conflict (id) do nothing;
 
 drop policy if exists "own_receipt_photos_select" on storage.objects;
 drop policy if exists "own_receipt_photos_insert" on storage.objects;
+drop policy if exists "own_receipt_photos_update" on storage.objects;
+drop policy if exists "own_receipt_photos_delete" on storage.objects;
 create policy "own_receipt_photos_select" on storage.objects
   for select using (bucket_id = 'receipts' and auth.uid()::text = (storage.foldername(name))[1]);
 create policy "own_receipt_photos_insert" on storage.objects
   for insert with check (bucket_id = 'receipts' and auth.uid()::text = (storage.foldername(name))[1]);
+create policy "own_receipt_photos_update" on storage.objects
+  for update using (bucket_id = 'receipts' and auth.uid()::text = (storage.foldername(name))[1]);
+create policy "own_receipt_photos_delete" on storage.objects
+  for delete using (bucket_id = 'receipts' and auth.uid()::text = (storage.foldername(name))[1]);
