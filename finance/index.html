@@ -19,7 +19,29 @@
 </nav>
 
 <section id="tab-spending" class="tab-panel active">
-  <p><em>Spending tab is wired in Task 11.</em></p>
+  <form id="receipt-form">
+    <label>
+      Add receipt photo
+      <input type="file" id="receipt-photo" accept="image/*" capture="environment" required />
+    </label>
+    <button type="submit">Scan Receipt</button>
+  </form>
+  <div id="receipt-status"></div>
+
+  <div id="receipt-preview" hidden>
+    <h2>Review before saving</h2>
+    <label>Merchant <input type="text" id="preview-merchant" /></label>
+    <label>Date <input type="date" id="preview-date" /></label>
+    <table id="preview-items"><tbody></tbody></table>
+    <button type="button" id="add-item-row">+ Add item</button>
+    <button type="button" id="save-receipt">Save</button>
+  </div>
+
+  <h2>Spend by category</h2>
+  <ul id="spend-by-category"></ul>
+
+  <h2>Calories by day</h2>
+  <ul id="calories-by-day"></ul>
 </section>
 
 <section id="tab-ot-pay" class="tab-panel">
