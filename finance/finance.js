@@ -59,7 +59,8 @@ async function onLogHours(e) {
 
 async function refreshHoursSummary() {
   const entries = await WorkHoursRepo.list();
-  const currentMonth = new Date().toISOString().slice(0, 7);
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const thisMonth = entries.filter((e) => e.workDate.slice(0, 7) === currentMonth);
   const totalsByType = {};
   for (const e of thisMonth) {
