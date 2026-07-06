@@ -28,22 +28,40 @@ Return ONLY valid JSON (no markdown fences, no commentary) matching this shape:
 Calorie/macro fields are your best estimate for that line item, or null if it isn't food.
 If the image isn't a legible receipt, return {"merchant": null, "purchased_at": null, "items": []}.`;
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 Deno.serve(async (req) => {
-  if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 });
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
 
-  const { storagePath, mediaType } = await req.json();
+  if (req.method !== 'POST') {
+    return new Response('Method not allowed', { status: 405, headers: corsHeaders });
+  }
+
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return new Response(JSON.stringify({ error: 'invalid JSON body' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+    });
+  }
+  const { storagePath, mediaType } = body;
   if (!storagePath) {
     return new Response(JSON.stringify({ error: 'storagePath is required' }), {
       status: 400,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   }
 
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
-    return new Response(JSON.stringify({ error: 'missing auth' }), { status: 401 });
+    return new Response(JSON.stringify({ error: 'missing auth' }), { status: 401, headers: corsHeaders });
   }
 
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -52,15 +70,15 @@ Deno.serve(async (req) => {
   });
   const { data: userData, error: userErr } = await userClient.auth.getUser();
   if (userErr || !userData?.user) {
-    return new Response(JSON.stringify({ error: 'invalid session' }), { status: 401 });
+    return new Response(JSON.stringify({ error: 'invalid session' }), { status: 401, headers: corsHeaders });
   }
   if (!storagePath.startsWith(`${userData.user.id}/`)) {
-    return new Response(JSON.stringify({ error: 'forbidden' }), { status: 403 });
+    return new Response(JSON.stringify({ error: 'forbidden' }), { status: 403, headers: corsHeaders });
   }
 
   const { data: fileData, error: downloadErr } = await admin.storage.from('receipts').download(storagePath);
   if (downloadErr || !fileData) {
-    return new Response(JSON.stringify({ error: 'could not read image' }), { status: 404 });
+    return new Response(JSON.stringify({ error: 'could not read image' }), { status: 404, headers: corsHeaders });
   }
 
   const bytes = new Uint8Array(await fileData.arrayBuffer());
@@ -92,7 +110,7 @@ Deno.serve(async (req) => {
 
   if (!claudeRes.ok) {
     const errText = await claudeRes.text();
-    return new Response(JSON.stringify({ error: 'claude request failed', detail: errText }), { status: 502 });
+    return new Response(JSON.stringify({ error: 'claude request failed', detail: errText }), { status: 502, headers: corsHeaders });
   }
 
   const claudeJson = await claudeRes.json();
@@ -101,8 +119,12 @@ Deno.serve(async (req) => {
   try {
     parsed = JSON.parse(textBlock?.text ?? '{}');
   } catch {
-    return new Response(JSON.stringify({ error: 'unparseable response', raw: textBlock?.text }), { status: 502 });
+    return new Response(JSON.stringify({ error: 'unparseable response', raw: textBlock?.text }), { status: 502, headers: corsHeaders });
   }
 
-  return new Response(JSON.stringify(parsed), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  if (!Array.isArray(parsed.items)) parsed.items = [];
+  if (typeof parsed.merchant !== 'string') parsed.merchant = null;
+  if (typeof parsed.purchased_at !== 'string') parsed.purchased_at = null;
+
+  return new Response(JSON.stringify(parsed), { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
 });
