@@ -117,14 +117,49 @@ function showPreview(extracted) {
 function addItemRow(item) {
   const tbody = document.querySelector('#preview-items tbody');
   const tr = document.createElement('tr');
-  tr.innerHTML = `
-    <td><input type="text" class="item-name" value="${item.name || ''}" placeholder="Item" /></td>
-    <td><input type="number" step="0.01" class="item-price" value="${item.price ?? ''}" placeholder="Price" /></td>
-    <td><input type="text" class="item-category" value="${item.category || 'other'}" placeholder="Category" /></td>
-    <td><input type="number" class="item-calories" value="${item.calories ?? ''}" placeholder="kcal (est.)" /></td>
-    <td><button type="button" class="remove-item">Remove</button></td>
-  `;
-  tr.querySelector('.remove-item').addEventListener('click', () => tr.remove());
+
+  const nameTd = document.createElement('td');
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.className = 'item-name';
+  nameInput.value = item.name || '';
+  nameInput.placeholder = 'Item';
+  nameTd.appendChild(nameInput);
+
+  const priceTd = document.createElement('td');
+  const priceInput = document.createElement('input');
+  priceInput.type = 'number';
+  priceInput.step = '0.01';
+  priceInput.className = 'item-price';
+  priceInput.value = item.price ?? '';
+  priceInput.placeholder = 'Price';
+  priceTd.appendChild(priceInput);
+
+  const categoryTd = document.createElement('td');
+  const categoryInput = document.createElement('input');
+  categoryInput.type = 'text';
+  categoryInput.className = 'item-category';
+  categoryInput.value = item.category || 'other';
+  categoryInput.placeholder = 'Category';
+  categoryTd.appendChild(categoryInput);
+
+  const caloriesTd = document.createElement('td');
+  const caloriesInput = document.createElement('input');
+  caloriesInput.type = 'number';
+  caloriesInput.className = 'item-calories';
+  caloriesInput.value = item.calories ?? '';
+  caloriesInput.placeholder = 'kcal (est.)';
+  caloriesTd.appendChild(caloriesInput);
+
+  const removeTd = document.createElement('td');
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'remove-item';
+  removeBtn.textContent = 'Remove';
+  removeBtn.addEventListener('click', () => tr.remove());
+  removeTd.appendChild(removeBtn);
+
+  tr.append(nameTd, priceTd, categoryTd, caloriesTd, removeTd);
   tbody.appendChild(tr);
 }
 
@@ -160,10 +195,20 @@ async function onSaveReceipt() {
 
 async function refreshSpendingDashboards() {
   const [byCategory, byDay] = await Promise.all([spendByCategory(), caloriesByDay()]);
-  document.getElementById('spend-by-category').innerHTML = Object.entries(byCategory)
-    .map(([cat, total]) => `<li>${cat}: ${total.toFixed(2)}</li>`)
-    .join('');
-  document.getElementById('calories-by-day').innerHTML = Object.entries(byDay)
-    .map(([day, kcal]) => `<li>${day}: ${Math.round(kcal)} kcal</li>`)
-    .join('');
+
+  const catList = document.getElementById('spend-by-category');
+  catList.innerHTML = '';
+  for (const [cat, total] of Object.entries(byCategory)) {
+    const li = document.createElement('li');
+    li.textContent = `${cat}: ${total.toFixed(2)}`;
+    catList.appendChild(li);
+  }
+
+  const dayList = document.getElementById('calories-by-day');
+  dayList.innerHTML = '';
+  for (const [day, kcal] of Object.entries(byDay)) {
+    const li = document.createElement('li');
+    li.textContent = `${day}: ${Math.round(kcal)} kcal`;
+    dayList.appendChild(li);
+  }
 }
