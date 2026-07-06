@@ -6,20 +6,24 @@ if ('serviceWorker' in navigator) {
 
 const statusEl = document.getElementById('auth-status');
 const loginBox = document.getElementById('login-box');
+const signoutBtn = document.getElementById('signout-btn');
 
 async function refreshAuthUI() {
   if (!cloudEnabled) {
     statusEl.textContent = 'local mode (no Supabase config yet)';
     loginBox.hidden = true;
+    signoutBtn.hidden = true;
     return;
   }
   const session = await Auth.session();
   if (session) {
     statusEl.textContent = `signed in as ${session.user.email}`;
     loginBox.hidden = true;
+    signoutBtn.hidden = false;
   } else {
     statusEl.textContent = 'signed out';
     loginBox.hidden = false;
+    signoutBtn.hidden = true;
   }
 }
 
@@ -38,6 +42,11 @@ document.getElementById('signup-btn').addEventListener('click', async () => {
   const { error } = await Auth.signUp(email, password);
   if (error) { alert(error.message); return; }
   alert('Account created — check your email if confirmation is required, then sign in.');
+});
+
+document.getElementById('signout-btn').addEventListener('click', async () => {
+  await Auth.signOut();
+  refreshAuthUI();
 });
 
 refreshAuthUI();

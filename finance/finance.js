@@ -21,19 +21,29 @@ function initTabs() {
 }
 
 async function initOtPayTab() {
-  const settings = await PaySettingsRepo.get();
+  let settings;
+  try {
+    settings = await PaySettingsRepo.get();
+  } catch (err) {
+    settings = { baseHourlyRate: 0, weekendMultiplier: 1.5, holidayMultiplier: 2.0, currency: 'MYR' };
+    document.getElementById('hours-status').textContent = `Sign in from the home page to save settings/hours (${err.message}).`;
+  }
   document.getElementById('settings-base-rate').value = settings.baseHourlyRate;
   document.getElementById('settings-weekend-mult').value = settings.weekendMultiplier;
   document.getElementById('settings-holiday-mult').value = settings.holidayMultiplier;
 
   document.getElementById('settings-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    await PaySettingsRepo.upsert({
-      baseHourlyRate: parseFloat(document.getElementById('settings-base-rate').value),
-      weekendMultiplier: parseFloat(document.getElementById('settings-weekend-mult').value),
-      holidayMultiplier: parseFloat(document.getElementById('settings-holiday-mult').value),
-      currency: settings.currency,
-    });
+    try {
+      await PaySettingsRepo.upsert({
+        baseHourlyRate: parseFloat(document.getElementById('settings-base-rate').value),
+        weekendMultiplier: parseFloat(document.getElementById('settings-weekend-mult').value),
+        holidayMultiplier: parseFloat(document.getElementById('settings-holiday-mult').value),
+        currency: settings.currency,
+      });
+    } catch (err) {
+      document.getElementById('hours-status').textContent = `Could not save settings (${err.message}).`;
+    }
   });
 
   document.getElementById('hours-form').addEventListener('submit', onLogHours);
@@ -53,7 +63,12 @@ async function onLogHours(e) {
   const dayType = manualHoliday ? 'holiday' : classifyDay(workDate, holidaySet);
   const computedPay = calculatePay({ hours, dayType, settings });
 
-  await WorkHoursRepo.create({ workDate, hours, dayType, computedPay });
+  try {
+    await WorkHoursRepo.create({ workDate, hours, dayType, computedPay });
+  } catch (err) {
+    status.textContent = `Could not save (${err.message}).`;
+    return;
+  }
   status.textContent = `Logged: ${dayType}, pay ${computedPay.toFixed(2)} ${settings.currency}`;
   document.getElementById('hours-form').reset();
   refreshHoursSummary();
@@ -84,7 +99,7 @@ function initSpendingTab() {
   document.getElementById('receipt-form').addEventListener('submit', onScanReceipt);
   document.getElementById('add-item-row').addEventListener('click', () => addItemRow({}));
   document.getElementById('save-receipt').addEventListener('click', onSaveReceipt);
-  refreshSpendingDashboards();
+  refreshSpendingDashboards().catch(() => {});
 }
 
 async function onScanReceipt(e) {
@@ -100,7 +115,7 @@ async function onScanReceipt(e) {
     status.textContent = '';
   } catch (err) {
     status.textContent = `Could not scan automatically (${err.message}). Enter items manually below.`;
-    pendingParse = { storagePath: null, extracted: { merchant: null, purchased_at: null, items: [] } };
+    pendingParse = { storagePath: err.storagePath || null, extracted: { merchant: null, purchased_at: null, items: [] } };
     showPreview(pendingParse.extracted);
   }
 }
@@ -151,6 +166,30 @@ function addItemRow(item) {
   caloriesInput.placeholder = 'kcal (est.)';
   caloriesTd.appendChild(caloriesInput);
 
+  const proteinTd = document.createElement('td');
+  const proteinInput = document.createElement('input');
+  proteinInput.type = 'number';
+  proteinInput.className = 'item-protein';
+  proteinInput.value = item.protein_g ?? '';
+  proteinInput.placeholder = 'protein (g)';
+  proteinTd.appendChild(proteinInput);
+
+  const carbsTd = document.createElement('td');
+  const carbsInput = document.createElement('input');
+  carbsInput.type = 'number';
+  carbsInput.className = 'item-carbs';
+  carbsInput.value = item.carbs_g ?? '';
+  carbsInput.placeholder = 'carbs (g)';
+  carbsTd.appendChild(carbsInput);
+
+  const fatTd = document.createElement('td');
+  const fatInput = document.createElement('input');
+  fatInput.type = 'number';
+  fatInput.className = 'item-fat';
+  fatInput.value = item.fat_g ?? '';
+  fatInput.placeholder = 'fat (g)';
+  fatTd.appendChild(fatInput);
+
   const removeTd = document.createElement('td');
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
@@ -159,7 +198,7 @@ function addItemRow(item) {
   removeBtn.addEventListener('click', () => tr.remove());
   removeTd.appendChild(removeBtn);
 
-  tr.append(nameTd, priceTd, categoryTd, caloriesTd, removeTd);
+  tr.append(nameTd, priceTd, categoryTd, caloriesTd, proteinTd, carbsTd, fatTd, removeTd);
   tbody.appendChild(tr);
 }
 
@@ -170,9 +209,9 @@ async function onSaveReceipt() {
     price: parseFloat(tr.querySelector('.item-price').value) || null,
     category: tr.querySelector('.item-category').value || 'other',
     calories: parseFloat(tr.querySelector('.item-calories').value) || null,
-    proteinG: null,
-    carbsG: null,
-    fatG: null,
+    proteinG: parseFloat(tr.querySelector('.item-protein').value) || null,
+    carbsG: parseFloat(tr.querySelector('.item-carbs').value) || null,
+    fatG: parseFloat(tr.querySelector('.item-fat').value) || null,
     editedByUser: true,
   }));
 

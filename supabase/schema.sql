@@ -7,7 +7,7 @@
 create table if not exists public.receipts (
   id            uuid primary key default gen_random_uuid(),
   user_id       uuid not null default auth.uid() references auth.users(id) on delete cascade,
-  image_path    text not null,
+  image_path    text,
   merchant      text,
   purchased_at  date,
   raw_json      jsonb,

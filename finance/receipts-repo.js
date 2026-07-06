@@ -9,6 +9,7 @@ export async function parseReceiptPhoto(file) {
   if (!c) throw new Error('Not signed in — cannot scan receipts without a Supabase connection.');
 
   const { data: { user } } = await c.auth.getUser();
+  if (!user) throw new Error('Not signed in.');
   const ext = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
   const storagePath = `${user.id}/${localId()}.${ext}`;
 
@@ -20,7 +21,11 @@ export async function parseReceiptPhoto(file) {
     body: { storagePath, mediaType: file.type },
     headers: { Authorization: `Bearer ${session.access_token}` },
   });
-  if (error) throw error;
+  if (error) {
+    const err = new Error(error.message || 'parse-receipt failed');
+    err.storagePath = storagePath;
+    throw err;
+  }
   return { storagePath, extracted: data };
 }
 
@@ -29,6 +34,7 @@ export async function saveReceipt({ storagePath, merchant, purchasedAt, items })
   if (!c) throw new Error('Not signed in — cannot save receipts without a Supabase connection.');
 
   const { data: { user } } = await c.auth.getUser();
+  if (!user) throw new Error('Not signed in.');
   const { data: receipt, error: receiptErr } = await c
     .from('receipts')
     .insert({ user_id: user.id, image_path: storagePath, merchant, purchased_at: purchasedAt })

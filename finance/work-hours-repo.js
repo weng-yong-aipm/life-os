@@ -42,6 +42,7 @@ export const CloudRepo = {
   async create(data) {
     const c = await getClient();
     const { data: { user } } = await c.auth.getUser();
+    if (!user) throw new Error('Not signed in.');
     const { data: row, error } = await c
       .from('work_hours')
       .insert({ ...toRow(data), user_id: user.id })

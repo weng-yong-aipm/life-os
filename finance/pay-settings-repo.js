@@ -26,6 +26,7 @@ export const CloudRepo = {
   async get() {
     const c = await getClient();
     const { data: { user } } = await c.auth.getUser();
+    if (!user) throw new Error('Not signed in.');
     const { data, error } = await c
       .from('pay_settings')
       .select('*')
@@ -43,6 +44,7 @@ export const CloudRepo = {
   async upsert(settings) {
     const c = await getClient();
     const { data: { user } } = await c.auth.getUser();
+    if (!user) throw new Error('Not signed in.');
     const { error } = await c.from('pay_settings').upsert({
       user_id: user.id,
       base_hourly_rate: settings.baseHourlyRate,
