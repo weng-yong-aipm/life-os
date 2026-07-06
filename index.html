@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>life-os</title>
+<link rel="stylesheet" href="ui.css" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icon.svg" />
+</head>
+<body>
+<header>
+  <h1>life-os</h1>
+  <span id="auth-status"></span>
+</header>
+
+<div id="login-box">
+  <form id="login-form">
+    <label>Email <input type="email" id="login-email" required /></label>
+    <label>Password <input type="password" id="login-password" required /></label>
+    <button type="submit">Sign in</button>
+    <button type="button" id="signup-btn">Create account</button>
+  </form>
+</div>
+
+<nav class="hub-grid">
+  <a class="hub-card" href="./finance/index.html">Finance</a>
+  <a class="hub-card disabled" href="#">Career (coming soon)</a>
+  <a class="hub-card disabled" href="#">Learning (coming soon)</a>
+  <a class="hub-card disabled" href="#">Invest (coming soon)</a>
+  <a class="hub-card disabled" href="#">Health (coming soon)</a>
+</nav>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
