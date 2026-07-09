@@ -1,4 +1,4 @@
-import { getClient } from '../db.js';
+import { getClient, cloudEnabled } from '../db.js';
 
 function localId() {
   return globalThis.crypto?.randomUUID?.() || 'r_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -62,13 +62,13 @@ export async function saveReceipt({ storagePath, merchant, purchasedAt, items })
 
 async function listReceiptsWithItems() {
   const c = await getClient();
-  if (!c) return [];
   const { data, error } = await c.from('receipts').select('*, receipt_items(*)').order('purchased_at', { ascending: false });
   if (error) throw error;
   return data;
 }
 
 export async function spendByCategory() {
+  if (!cloudEnabled) return null;
   const receipts = await listReceiptsWithItems();
   const totals = {};
   for (const r of receipts) {
@@ -81,6 +81,7 @@ export async function spendByCategory() {
 }
 
 export async function caloriesByDay() {
+  if (!cloudEnabled) return null;
   const receipts = await listReceiptsWithItems();
   const totals = {};
   for (const r of receipts) {

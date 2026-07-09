@@ -8,13 +8,27 @@ const DEFAULT_SETTINGS = {
   currency: 'MYR',
 };
 
-export const LocalRepo = {
+function toRow(s) {
+  return {
+    base_hourly_rate: s.baseHourlyRate,
+    weekend_multiplier: s.weekendMultiplier,
+    holiday_multiplier: s.holidayMultiplier,
+    currency: s.currency,
+  };
+}
+function fromRow(r) {
+  return {
+    baseHourlyRate: r.base_hourly_rate,
+    weekendMultiplier: r.weekend_multiplier,
+    holidayMultiplier: r.holiday_multiplier,
+    currency: r.currency,
+  };
+}
+
+const LocalRepo = {
   async get() {
-    try {
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(LOCAL_KEY)) };
-    } catch {
-      return DEFAULT_SETTINGS;
-    }
+    try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(LOCAL_KEY)) }; }
+    catch { return DEFAULT_SETTINGS; }
   },
   async upsert(settings) {
     localStorage.setItem(LOCAL_KEY, JSON.stringify(settings));
@@ -22,36 +36,20 @@ export const LocalRepo = {
   },
 };
 
-export const CloudRepo = {
+const CloudRepo = {
   async get() {
     const c = await getClient();
     const { data: { user } } = await c.auth.getUser();
     if (!user) throw new Error('Not signed in.');
-    const { data, error } = await c
-      .from('pay_settings')
-      .select('*')
-      .eq('user_id', user.id)
-      .maybeSingle();
+    const { data, error } = await c.from('pay_settings').select('*').maybeSingle();
     if (error) throw error;
-    if (!data) return DEFAULT_SETTINGS;
-    return {
-      baseHourlyRate: data.base_hourly_rate,
-      weekendMultiplier: data.weekend_multiplier,
-      holidayMultiplier: data.holiday_multiplier,
-      currency: data.currency,
-    };
+    return data ? fromRow(data) : DEFAULT_SETTINGS;
   },
   async upsert(settings) {
     const c = await getClient();
     const { data: { user } } = await c.auth.getUser();
     if (!user) throw new Error('Not signed in.');
-    const { error } = await c.from('pay_settings').upsert({
-      user_id: user.id,
-      base_hourly_rate: settings.baseHourlyRate,
-      weekend_multiplier: settings.weekendMultiplier,
-      holiday_multiplier: settings.holidayMultiplier,
-      currency: settings.currency,
-    });
+    const { error } = await c.from('pay_settings').upsert({ user_id: user.id, ...toRow(settings) });
     if (error) throw error;
     return settings;
   },

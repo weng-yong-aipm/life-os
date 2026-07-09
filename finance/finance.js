@@ -3,6 +3,7 @@ import { holidaySetForYear } from './holidays-repo.js';
 import { WorkHoursRepo } from './work-hours-repo.js';
 import { PaySettingsRepo } from './pay-settings-repo.js';
 import { parseReceiptPhoto, saveReceipt, spendByCategory, caloriesByDay } from './receipts-repo.js';
+import { cloudEnabled } from '../db.js';
 
 initTabs();
 initSpendingTab();
@@ -227,7 +228,9 @@ async function onSaveReceipt() {
     pendingParse = null;
     refreshSpendingDashboards();
   } catch (err) {
-    status.textContent = `Could not save (${err.message}). Try again once you're online.`;
+    status.textContent = cloudEnabled
+      ? `Could not save (${err.message}). Try again once you're online.`
+      : 'Receipts need cloud sync — enable Supabase in config.js to use this feature.';
   }
 }
 
@@ -235,6 +238,17 @@ async function refreshSpendingDashboards() {
   const [byCategory, byDay] = await Promise.all([spendByCategory(), caloriesByDay()]);
 
   const catList = document.getElementById('spend-by-category');
+  const dayList = document.getElementById('calories-by-day');
+
+  if (byCategory === null || byDay === null) {
+    catList.innerHTML = '';
+    const li = document.createElement('li');
+    li.textContent = 'Receipts require cloud sync — enable Supabase in config.js.';
+    catList.appendChild(li);
+    dayList.innerHTML = '';
+    return;
+  }
+
   catList.innerHTML = '';
   for (const [cat, total] of Object.entries(byCategory)) {
     const li = document.createElement('li');
@@ -242,7 +256,6 @@ async function refreshSpendingDashboards() {
     catList.appendChild(li);
   }
 
-  const dayList = document.getElementById('calories-by-day');
   dayList.innerHTML = '';
   for (const [day, kcal] of Object.entries(byDay)) {
     const li = document.createElement('li');
