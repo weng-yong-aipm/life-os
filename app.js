@@ -44,8 +44,10 @@ document.getElementById('google-signin').addEventListener('click', async () => {
 });
 
 document.getElementById('signup-btn').addEventListener('click', async () => {
-  const email = document.getElementById('login-email').value;
+  const email = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
+  if (!email || !password) { alert('Enter an email and a password first, then tap Create account.'); return; }
+  if (password.length < 6) { alert('Password must be at least 6 characters.'); return; }
   const { error } = await Auth.signUp(email, password);
   if (error) { alert(error.message); return; }
   alert('Account created — check your email if confirmation is required, then sign in.');
