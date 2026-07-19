@@ -17,6 +17,13 @@ export const Auth = {
     const c = await getClient();
     return c.auth.signUp({ email, password });
   },
+  async signInWithGoogle() {
+    const c = await getClient();
+    return c.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.href },
+    });
+  },
   async signOut() {
     const c = await getClient();
     return c.auth.signOut();

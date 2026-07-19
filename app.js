@@ -36,6 +36,13 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
   refreshAuthUI();
 });
 
+document.getElementById('google-signin').addEventListener('click', async () => {
+  if (!cloudEnabled) { alert('Google sign-in needs Supabase configured in config.js.'); return; }
+  const { error } = await Auth.signInWithGoogle();
+  if (error) alert(error.message);
+  // on success the browser redirects to Google, then back here signed in
+});
+
 document.getElementById('signup-btn').addEventListener('click', async () => {
   const email = document.getElementById('login-email').value;
   const password = document.getElementById('login-password').value;

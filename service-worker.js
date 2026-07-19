@@ -1,5 +1,7 @@
-/* Offline caching for the PWA shell. Bump CACHE whenever ASSETS changes. */
-const CACHE = 'life-os-v1';
+/* Offline caching for the PWA shell.
+ * Network-first: always try the network so updates appear immediately when
+ * online; fall back to cache only when offline. Bump CACHE on shell changes. */
+const CACHE = 'life-os-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -18,6 +20,15 @@ const ASSETS = [
   './finance/work-hours-repo.js',
   './finance/pay-settings-repo.js',
   './finance/receipts-repo.js',
+  './finance/expenses-repo.js',
+  './health/index.html',
+  './health/health.js',
+  './health/meals-repo.js',
+  './health/workouts-repo.js',
+  './health/nutrition.js',
+  './health/calories-burned.js',
+  './health/data/foods.json',
+  './health/data/exercises.json',
 ];
 
 self.addEventListener('install', (e) => {
@@ -34,16 +45,15 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  // Only manage same-origin requests; let cross-origin (fonts, Supabase, Google) pass through.
+  if (new URL(e.request.url).origin !== self.location.origin) return;
   e.respondWith(
-    caches.match(e.request).then((cached) =>
-      cached ||
-      fetch(e.request)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
-          return res;
-        })
-        .catch(() => cached)
-    )
+    fetch(e.request)
+      .then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
+        return res;
+      })
+      .catch(() => caches.match(e.request))
   );
 });
