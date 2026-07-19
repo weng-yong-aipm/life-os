@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>life-os — Finance</title>
-<link rel="stylesheet" href="../ui.css?v=3" />
+<link rel="stylesheet" href="../ui.css?v=4" />
 <link rel="manifest" href="../manifest.webmanifest" />
 </head>
 <body>
@@ -20,67 +20,85 @@
 </nav>
 
 <section id="tab-spending" class="tab-panel active">
-  <form id="receipt-form">
-    <label>
-      Add receipt photo
-      <input type="file" id="receipt-photo" accept="image/*" capture="environment" required />
-    </label>
-    <button type="submit">Scan Receipt</button>
-  </form>
-  <div id="receipt-status"></div>
+  <div class="cols">
+    <div class="col">
+      <form id="receipt-form">
+        <label>
+          Add receipt photo
+          <input type="file" id="receipt-photo" accept="image/*" capture="environment" required />
+        </label>
+        <button type="submit">Scan Receipt</button>
+      </form>
+      <div id="receipt-status"></div>
 
-  <div id="receipt-preview" hidden>
-    <h2>Review before saving</h2>
-    <label>Merchant <input type="text" id="preview-merchant" /></label>
-    <label>Date <input type="date" id="preview-date" /></label>
-    <table id="preview-items"><tbody></tbody></table>
-    <button type="button" id="add-item-row">+ Add item</button>
-    <button type="button" id="save-receipt">Save</button>
+      <div id="receipt-preview" hidden>
+        <h3>Review before saving</h3>
+        <label>Merchant <input type="text" id="preview-merchant" /></label>
+        <label>Date <input type="date" id="preview-date" /></label>
+        <table id="preview-items"><tbody></tbody></table>
+        <button type="button" id="add-item-row">+ Add item</button>
+        <button type="button" id="save-receipt">Save</button>
+      </div>
+    </div>
+
+    <div class="col">
+      <h2>Spend by category</h2>
+      <ul id="spend-by-category"></ul>
+
+      <h2>Calories by day</h2>
+      <ul id="calories-by-day"></ul>
+    </div>
   </div>
-
-  <h2>Spend by category</h2>
-  <ul id="spend-by-category"></ul>
-
-  <h2>Calories by day</h2>
-  <ul id="calories-by-day"></ul>
 </section>
 
 <section id="tab-ot-pay" class="tab-panel">
-  <h2>Pay settings</h2>
-  <form id="settings-form">
-    <label>Base hourly rate <input type="number" step="0.01" id="settings-base-rate" required /></label>
-    <label>Weekend multiplier <input type="number" step="0.01" id="settings-weekend-mult" required /></label>
-    <label>Holiday multiplier <input type="number" step="0.01" id="settings-holiday-mult" required /></label>
-    <button type="submit">Save settings</button>
-  </form>
+  <div class="cols">
+    <div class="col">
+      <h2>Pay settings</h2>
+      <form id="settings-form">
+        <label>Base hourly rate <input type="number" step="0.01" id="settings-base-rate" required /></label>
+        <label>Weekend multiplier <input type="number" step="0.01" id="settings-weekend-mult" required /></label>
+        <label>Holiday multiplier <input type="number" step="0.01" id="settings-holiday-mult" required /></label>
+        <button type="submit">Save settings</button>
+      </form>
 
-  <h2>Log hours</h2>
-  <form id="hours-form">
-    <label>Date <input type="date" id="hours-date" required /></label>
-    <label>Hours worked <input type="number" step="0.25" id="hours-worked" required /></label>
-    <label><input type="checkbox" id="hours-manual-holiday" /> This is a public holiday (not in the list)</label>
-    <button type="submit">Log hours</button>
-  </form>
-  <div id="hours-status"></div>
+      <h2>Log hours</h2>
+      <form id="hours-form">
+        <label>Date <input type="date" id="hours-date" required /></label>
+        <label>Hours worked <input type="number" step="0.25" id="hours-worked" required /></label>
+        <label><input type="checkbox" id="hours-manual-holiday" /> This is a public holiday (not in the list)</label>
+        <button type="submit">Log hours</button>
+      </form>
+      <div id="hours-status"></div>
+    </div>
 
-  <h2>This month</h2>
-  <table id="hours-summary"><tbody></tbody></table>
+    <div class="col">
+      <h2>This month</h2>
+      <table id="hours-summary"><tbody></tbody></table>
+    </div>
+  </div>
 </section>
 
 <section id="tab-expenses" class="tab-panel">
-  <h2>Add expense</h2>
-  <form id="expense-form">
-    <label>Date <input type="date" id="expense-date" required /></label>
-    <label>Amount <input type="number" step="0.01" id="expense-amount" required /></label>
-    <label>Category <input type="text" id="expense-category" value="other" /></label>
-    <label>Note <input type="text" id="expense-note" placeholder="optional" /></label>
-    <button type="submit">Add</button>
-  </form>
-  <div id="expense-status"></div>
+  <div class="cols">
+    <div class="col">
+      <h2>Add expense</h2>
+      <form id="expense-form">
+        <label>Date <input type="date" id="expense-date" required /></label>
+        <label>Amount <input type="number" step="0.01" id="expense-amount" required /></label>
+        <label>Category <input type="text" id="expense-category" value="other" /></label>
+        <label>Note <input type="text" id="expense-note" placeholder="optional" /></label>
+        <button type="submit">Add</button>
+      </form>
+      <div id="expense-status"></div>
+    </div>
 
-  <h2>This month</h2>
-  <p id="expense-total"></p>
-  <ul id="expense-by-category"></ul>
+    <div class="col">
+      <h2>This month</h2>
+      <p id="expense-total"></p>
+      <ul id="expense-by-category"></ul>
+    </div>
+  </div>
 </section>
 
 <script type="module" src="finance.js"></script>

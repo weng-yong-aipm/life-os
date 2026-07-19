@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>life-os — Health</title>
-<link rel="stylesheet" href="../ui.css?v=3" />
+<link rel="stylesheet" href="../ui.css?v=4" />
 <link rel="manifest" href="../manifest.webmanifest" />
 </head>
 <body>
@@ -19,62 +19,74 @@
 </nav>
 
 <section id="tab-meal" class="tab-panel active">
-  <h2>Log meal</h2>
-  <form id="meal-photo-form">
-    <label>Snap a meal photo
-      <input type="file" id="meal-photo" accept="image/*" capture="environment" />
-    </label>
-    <button type="submit">Estimate from photo</button>
-  </form>
+  <div class="cols">
+    <div class="col">
+      <h2>Log meal</h2>
+      <form id="meal-photo-form">
+        <label>Snap a meal photo
+          <input type="file" id="meal-photo" accept="image/*" capture="environment" />
+        </label>
+        <button type="submit">Estimate from photo</button>
+      </form>
 
-  <label>Or search a food
-    <input type="text" id="food-search" placeholder="e.g. chicken rice" list="food-list" />
-  </label>
-  <datalist id="food-list"></datalist>
-  <label>Servings <input type="number" id="food-servings" step="0.25" value="1" /></label>
-  <button type="button" id="food-add">Add food</button>
+      <label>Or search a food
+        <input type="text" id="food-search" placeholder="e.g. chicken rice" list="food-list" />
+      </label>
+      <datalist id="food-list"></datalist>
+      <label>Servings <input type="number" id="food-servings" step="0.25" value="1" /></label>
+      <button type="button" id="food-add">Add food</button>
 
-  <div id="meal-status"></div>
+      <div id="meal-status"></div>
 
-  <div id="meal-preview" hidden>
-    <h3>Review before saving</h3>
-    <label>Name <input type="text" id="meal-name" /></label>
-    <label>Date <input type="date" id="meal-date" /></label>
-    <label>Calories <input type="number" id="meal-cal" /></label>
-    <label>Protein (g) <input type="number" id="meal-protein" /></label>
-    <label>Carbs (g) <input type="number" id="meal-carbs" /></label>
-    <label>Fat (g) <input type="number" id="meal-fat" /></label>
-    <button type="button" id="meal-save">Save meal</button>
+      <div id="meal-preview" hidden>
+        <h3>Review before saving</h3>
+        <label>Name <input type="text" id="meal-name" /></label>
+        <label>Date <input type="date" id="meal-date" /></label>
+        <label>Calories <input type="number" id="meal-cal" /></label>
+        <label>Protein (g) <input type="number" id="meal-protein" /></label>
+        <label>Carbs (g) <input type="number" id="meal-carbs" /></label>
+        <label>Fat (g) <input type="number" id="meal-fat" /></label>
+        <button type="button" id="meal-save">Save meal</button>
+      </div>
+    </div>
+
+    <div class="col">
+      <h2>Today</h2>
+      <label>Daily target (kcal) <input type="number" id="meal-target" value="2000" /></label>
+      <p id="meal-daily"></p>
+      <ul id="meal-list"></ul>
+    </div>
   </div>
-
-  <h2>Today</h2>
-  <label>Daily target (kcal) <input type="number" id="meal-target" value="2000" /></label>
-  <p id="meal-daily"></p>
-  <ul id="meal-list"></ul>
 </section>
 
 <section id="tab-workout" class="tab-panel">
-  <h2>Log workout</h2>
-  <form id="workout-form">
-    <label>Exercise
-      <input type="text" id="workout-exercise" list="exercise-list" placeholder="e.g. Barbell Squat" required />
-    </label>
-    <datalist id="exercise-list"></datalist>
-    <label>Date <input type="date" id="workout-date" required /></label>
-    <label>Sets <input type="number" id="workout-sets" /></label>
-    <label>Reps <input type="number" id="workout-reps" /></label>
-    <label>Weight (kg) <input type="number" id="workout-weight" step="0.5" /></label>
-    <label>Duration (min) <input type="number" id="workout-duration" /></label>
-    <button type="submit">Log workout</button>
-  </form>
-  <div id="workout-status"></div>
+  <div class="cols">
+    <div class="col">
+      <h2>Log workout</h2>
+      <form id="workout-form">
+        <label>Exercise
+          <input type="text" id="workout-exercise" list="exercise-list" placeholder="e.g. Barbell Squat" required />
+        </label>
+        <datalist id="exercise-list"></datalist>
+        <label>Date <input type="date" id="workout-date" required /></label>
+        <label>Sets <input type="number" id="workout-sets" /></label>
+        <label>Reps <input type="number" id="workout-reps" /></label>
+        <label>Weight (kg) <input type="number" id="workout-weight" step="0.5" /></label>
+        <label>Duration (min) <input type="number" id="workout-duration" /></label>
+        <button type="submit">Log workout</button>
+      </form>
+      <div id="workout-status"></div>
 
-  <h2>Bodyweight (for burn estimate)</h2>
-  <label>Weight (kg) <input type="number" id="body-weight" step="0.5" value="70" /></label>
+      <h2>Bodyweight (for burn estimate)</h2>
+      <label>Weight (kg) <input type="number" id="body-weight" step="0.5" value="70" /></label>
+    </div>
 
-  <h2>This week</h2>
-  <p id="workout-summary"></p>
-  <ul id="workout-list"></ul>
+    <div class="col">
+      <h2>This week</h2>
+      <p id="workout-summary"></p>
+      <ul id="workout-list"></ul>
+    </div>
+  </div>
 </section>
 
 <script type="module" src="health.js"></script>

@@ -71,12 +71,21 @@ body {
   line-height: 1.5;
   background: var(--paper);
   color: var(--ink);
-  padding: 0 1rem 3rem;
-  max-width: 560px;
+  padding: 0 clamp(1rem, 4vw, 2.5rem) 3rem;
+  max-width: 960px;
   margin-inline: auto;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
+
+/* responsive two-pane: stacks on mobile, side-by-side on wider screens.
+   Wrap a module panel's "input" and "summary" halves in .cols > .col. */
+.cols { display: grid; gap: 1.5rem; }
+@media (min-width: 800px) {
+  .cols { grid-template-columns: 1fr 1fr; align-items: start; gap: 2rem; }
+}
+.col { min-width: 0; }
+.col > h2:first-child { margin-top: 0; }
 
 /* ---------- header ---------- */
 
@@ -147,7 +156,7 @@ header #auth-status {
 
 .hub-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: .85rem;
 }
 .hub-card {
@@ -207,7 +216,8 @@ header #auth-status {
   background: var(--surface);
   padding: 1.25rem;
   box-shadow: var(--shadow);
-  margin-bottom: 1.5rem;
+  margin: 0 auto 1.5rem;
+  max-width: 420px;
 }
 #login-box form {
   padding: 0;
