@@ -126,3 +126,92 @@ create policy "own_receipt_photos_update" on storage.objects
   for update using (bucket_id = 'receipts' and auth.uid()::text = (storage.foldername(name))[1]);
 create policy "own_receipt_photos_delete" on storage.objects
   for delete using (bucket_id = 'receipts' and auth.uid()::text = (storage.foldername(name))[1]);
+
+-- ============ Trackers: expenses / meals / workouts ============
+
+create table if not exists public.expenses (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  spent_at    date not null,
+  amount      numeric not null,
+  category    text not null default 'other',
+  note        text,
+  created_at  timestamptz not null default now()
+);
+
+create table if not exists public.meals (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  eaten_at    date not null,
+  name        text not null,
+  source      text not null default 'manual',
+  image_path  text,
+  calories    numeric, protein_g numeric, carbs_g numeric, fat_g numeric,
+  created_at  timestamptz not null default now()
+);
+
+create table if not exists public.workouts (
+  id              uuid primary key default gen_random_uuid(),
+  user_id         uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  done_at         date not null,
+  exercise        text not null,
+  category        text,
+  sets            int, reps int, weight_kg numeric,
+  duration_min    numeric,
+  calories_burned numeric,
+  created_at      timestamptz not null default now()
+);
+
+create index if not exists expenses_user_id_idx on public.expenses (user_id);
+create index if not exists expenses_spent_at_idx on public.expenses (spent_at);
+create index if not exists meals_user_id_idx on public.meals (user_id);
+create index if not exists meals_eaten_at_idx on public.meals (eaten_at);
+create index if not exists workouts_user_id_idx on public.workouts (user_id);
+create index if not exists workouts_done_at_idx on public.workouts (done_at);
+
+alter table public.expenses enable row level security;
+alter table public.meals enable row level security;
+alter table public.workouts enable row level security;
+
+drop policy if exists "own_select" on public.expenses;
+drop policy if exists "own_insert" on public.expenses;
+drop policy if exists "own_update" on public.expenses;
+drop policy if exists "own_delete" on public.expenses;
+create policy "own_select" on public.expenses for select using (auth.uid() = user_id);
+create policy "own_insert" on public.expenses for insert with check (auth.uid() = user_id);
+create policy "own_update" on public.expenses for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "own_delete" on public.expenses for delete using (auth.uid() = user_id);
+
+drop policy if exists "own_select" on public.meals;
+drop policy if exists "own_insert" on public.meals;
+drop policy if exists "own_update" on public.meals;
+drop policy if exists "own_delete" on public.meals;
+create policy "own_select" on public.meals for select using (auth.uid() = user_id);
+create policy "own_insert" on public.meals for insert with check (auth.uid() = user_id);
+create policy "own_update" on public.meals for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "own_delete" on public.meals for delete using (auth.uid() = user_id);
+
+drop policy if exists "own_select" on public.workouts;
+drop policy if exists "own_insert" on public.workouts;
+drop policy if exists "own_update" on public.workouts;
+drop policy if exists "own_delete" on public.workouts;
+create policy "own_select" on public.workouts for select using (auth.uid() = user_id);
+create policy "own_insert" on public.workouts for insert with check (auth.uid() = user_id);
+create policy "own_update" on public.workouts for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "own_delete" on public.workouts for delete using (auth.uid() = user_id);
+
+insert into storage.buckets (id, name, public) values ('meals', 'meals', false)
+on conflict (id) do nothing;
+
+drop policy if exists "own_meal_photos_select" on storage.objects;
+drop policy if exists "own_meal_photos_insert" on storage.objects;
+drop policy if exists "own_meal_photos_update" on storage.objects;
+drop policy if exists "own_meal_photos_delete" on storage.objects;
+create policy "own_meal_photos_select" on storage.objects
+  for select using (bucket_id = 'meals' and auth.uid()::text = (storage.foldername(name))[1]);
+create policy "own_meal_photos_insert" on storage.objects
+  for insert with check (bucket_id = 'meals' and auth.uid()::text = (storage.foldername(name))[1]);
+create policy "own_meal_photos_update" on storage.objects
+  for update using (bucket_id = 'meals' and auth.uid()::text = (storage.foldername(name))[1]);
+create policy "own_meal_photos_delete" on storage.objects
+  for delete using (bucket_id = 'meals' and auth.uid()::text = (storage.foldername(name))[1]);

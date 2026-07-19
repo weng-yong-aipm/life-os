@@ -3,11 +3,13 @@ import { holidaySetForYear } from './holidays-repo.js';
 import { WorkHoursRepo } from './work-hours-repo.js';
 import { PaySettingsRepo } from './pay-settings-repo.js';
 import { parseReceiptPhoto, saveReceipt, spendByCategory, caloriesByDay } from './receipts-repo.js';
+import { ExpensesRepo } from './expenses-repo.js';
 import { cloudEnabled } from '../db.js';
 
 initTabs();
 initSpendingTab();
 initOtPayTab();
+initExpensesTab();
 
 function initTabs() {
   const buttons = document.querySelectorAll('.tab-btn');
@@ -261,5 +263,51 @@ async function refreshSpendingDashboards() {
     const li = document.createElement('li');
     li.textContent = `${day}: ${Math.round(kcal)} kcal`;
     dayList.appendChild(li);
+  }
+}
+
+/* ---------------- Expenses tab ---------------- */
+
+function initExpensesTab() {
+  document.getElementById('expense-form').addEventListener('submit', onAddExpense);
+  refreshExpenseSummary().catch(() => {});
+}
+
+async function onAddExpense(e) {
+  e.preventDefault();
+  const status = document.getElementById('expense-status');
+  try {
+    await ExpensesRepo.create({
+      spentAt: document.getElementById('expense-date').value,
+      amount: parseFloat(document.getElementById('expense-amount').value),
+      category: document.getElementById('expense-category').value || 'other',
+      note: document.getElementById('expense-note').value || null,
+    });
+    document.getElementById('expense-form').reset();
+    document.getElementById('expense-category').value = 'other';
+    status.textContent = 'Added.';
+    refreshExpenseSummary();
+  } catch (err) {
+    status.textContent = `Could not add (${err.message}).`;
+  }
+}
+
+async function refreshExpenseSummary() {
+  const now = new Date();
+  const yyyymm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const summary = await ExpensesRepo.monthlySummary(yyyymm);
+  const totalEl = document.getElementById('expense-total');
+  const listEl = document.getElementById('expense-by-category');
+  if (summary === null) {
+    totalEl.textContent = 'Expenses need cloud sync — enable Supabase in config.js.';
+    listEl.innerHTML = '';
+    return;
+  }
+  totalEl.textContent = `Total: ${summary.total.toFixed(2)}`;
+  listEl.innerHTML = '';
+  for (const [cat, total] of Object.entries(summary.byCategory)) {
+    const li = document.createElement('li');
+    li.textContent = `${cat}: ${total.toFixed(2)}`;
+    listEl.appendChild(li);
   }
 }
