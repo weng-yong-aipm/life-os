@@ -215,3 +215,34 @@ create policy "own_meal_photos_update" on storage.objects
   for update using (bucket_id = 'meals' and auth.uid()::text = (storage.foldername(name))[1]);
 create policy "own_meal_photos_delete" on storage.objects
   for delete using (bucket_id = 'meals' and auth.uid()::text = (storage.foldername(name))[1]);
+
+-- ============ Learning Log (learning-os slice 1) ============
+
+create table if not exists public.learning_sessions (
+  id            uuid primary key default gen_random_uuid(),
+  user_id       uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  learned_on    date not null,
+  source        text not null default 'douyin',   -- douyin | instagram | other
+  link          text,
+  title         text not null,
+  summary       text,                              -- what I learned
+  project       text,                              -- which of my projects it maps to
+  verdict       text not null default 'considering', -- applied | rejected | considering
+  applied_note  text,                              -- what got applied, or why rejected
+  tags          text[],
+  created_at    timestamptz not null default now()
+);
+
+create index if not exists learning_user_id_idx on public.learning_sessions (user_id);
+create index if not exists learning_learned_on_idx on public.learning_sessions (learned_on);
+
+alter table public.learning_sessions enable row level security;
+
+drop policy if exists "own_select" on public.learning_sessions;
+drop policy if exists "own_insert" on public.learning_sessions;
+drop policy if exists "own_update" on public.learning_sessions;
+drop policy if exists "own_delete" on public.learning_sessions;
+create policy "own_select" on public.learning_sessions for select using (auth.uid() = user_id);
+create policy "own_insert" on public.learning_sessions for insert with check (auth.uid() = user_id);
+create policy "own_update" on public.learning_sessions for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "own_delete" on public.learning_sessions for delete using (auth.uid() = user_id);

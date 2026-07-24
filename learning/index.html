@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>life-os — Learning</title>
+<link rel="stylesheet" href="../ui.css?v=5" />
+<link rel="manifest" href="../manifest.webmanifest" />
+</head>
+<body>
+<header>
+  <a href="../index.html">&larr; life-os</a>
+  <h1>Learning</h1>
+</header>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="log">Log</button>
+  <button class="tab-btn" data-tab="weekly">Weekly</button>
+</nav>
+
+<section id="tab-log" class="tab-panel active">
+  <div class="cols">
+    <div class="col">
+      <h2>Add entry</h2>
+      <form id="learn-form">
+        <label>Date <input type="date" id="learn-date" required /></label>
+        <label>Source
+          <select id="learn-source">
+            <option value="douyin">抖音 / Douyin</option>
+            <option value="instagram">Instagram</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+        <label>Link <input type="url" id="learn-link" placeholder="https://…" /></label>
+        <label>Title <input type="text" id="learn-title" placeholder="what it's about" required /></label>
+        <label>What you learned <textarea id="learn-summary" rows="3"></textarea></label>
+        <label>Applies to project <input type="text" id="learn-project" placeholder="e.g. life-os, cockpit" /></label>
+        <label>Verdict
+          <select id="learn-verdict">
+            <option value="considering">Considering</option>
+            <option value="applied">Applied</option>
+            <option value="rejected">Rejected — not a fit</option>
+          </select>
+        </label>
+        <label>Applied / why rejected <textarea id="learn-note" rows="2"></textarea></label>
+        <button type="submit">Add to log</button>
+      </form>
+
+      <h2>Paste entries</h2>
+      <p class="hint">Paste a JSON array of entries (the block Claude gives you after a 抖音/IG review), then Import.</p>
+      <textarea id="learn-paste" rows="5" placeholder='[{"learnedOn":"2026-07-24","source":"douyin","title":"…","summary":"…","project":"life-os","verdict":"applied","appliedNote":"…","link":"https://…"}]'></textarea>
+      <button type="button" id="learn-import">Import pasted entries</button>
+      <div id="learn-status"></div>
+    </div>
+
+    <div class="col">
+      <h2>Log</h2>
+      <label>Filter by verdict
+        <select id="learn-filter">
+          <option value="">All</option>
+          <option value="applied">Applied</option>
+          <option value="considering">Considering</option>
+          <option value="rejected">Rejected</option>
+        </select>
+      </label>
+      <ul id="learn-list"></ul>
+    </div>
+  </div>
+</section>
+
+<section id="tab-weekly" class="tab-panel">
+  <h2>This week</h2>
+  <p id="weekly-head"></p>
+  <p id="weekly-counts"></p>
+  <h3>By project</h3>
+  <ul id="weekly-projects"></ul>
+  <h3>Applied</h3>
+  <ul id="weekly-applied"></ul>
+  <h3>Rejected — not a fit</h3>
+  <ul id="weekly-rejected"></ul>
+</section>
+
+<script type="module" src="learning.js"></script>
+</body>
+</html>

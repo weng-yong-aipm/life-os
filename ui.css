@@ -345,6 +345,27 @@ input:focus-visible {
   box-shadow: 0 0 0 3px var(--accent-wash);
 }
 input[type="file"] { padding: .5rem; font-family: var(--mono); font-size: .8rem; }
+textarea, select {
+  padding: .7rem .8rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  font-family: var(--body);
+  font-size: 1rem;
+  background: var(--paper);
+  color: var(--ink);
+  transition: border-color .15s, box-shadow .15s;
+}
+textarea { resize: vertical; min-height: 3.5rem; line-height: 1.45; }
+select { min-height: 44px; cursor: pointer; }
+textarea:focus-visible, select:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+.hint { font-size: .8rem; color: var(--muted); margin: 0 0 .5rem; }
+/* standalone paste box / import button spacing outside a form */
+#learn-paste { width: 100%; margin-bottom: .6rem; }
+#learn-import { align-self: flex-start; margin-bottom: 1rem; }
 input[type="checkbox"] { min-height: auto; width: 18px; height: 18px; accent-color: var(--accent); }
 label:has(input[type="checkbox"]) { flex-direction: row; align-items: center; gap: .5rem; color: var(--ink); font-size: .9rem; }
 
