@@ -1,7 +1,7 @@
 /* Offline caching for the PWA shell.
  * Network-first: always try the network so updates appear immediately when
  * online; fall back to cache only when offline. Bump CACHE on shell changes. */
-const CACHE = 'life-os-v2';
+const CACHE = 'life-os-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -29,6 +29,10 @@ const ASSETS = [
   './health/calories-burned.js',
   './health/data/foods.json',
   './health/data/exercises.json',
+  './learning/index.html',
+  './learning/learning.js',
+  './learning/learning-repo.js',
+  './learning/weekly.js',
 ];
 
 self.addEventListener('install', (e) => {
