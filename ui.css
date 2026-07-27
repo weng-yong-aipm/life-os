@@ -510,6 +510,48 @@ ul li {
 }
 ul:empty { display: none; }
 
+/* ---- Goals & Certs ---- */
+#goal-list { display: flex; flex-direction: column; gap: .6rem; }
+.goal-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: .8rem .9rem;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+.goal-top { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem; }
+.goal-title { font-weight: 600; }
+.chip {
+  font-family: var(--mono);
+  font-size: .66rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  padding: .2rem .45rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.cat-role, .cat-income { background: var(--accent-wash); color: var(--accent-ink); }
+.cat-cert { background: var(--good-wash); color: var(--good); }
+.goal-bar { height: 6px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+.goal-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width .3s ease; }
+.goal-meta {
+  display: flex; justify-content: space-between; gap: 1rem;
+  font-family: var(--mono); font-size: .78rem; color: var(--muted);
+}
+.goal-actions { display: flex; align-items: center; gap: .6rem; }
+.goal-actions select { flex: 0 0 auto; width: auto; margin: 0; }
+.goal-note { font-size: .82rem; color: var(--muted); margin: 0; }
+.link-btn {
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  font-size: .8rem; padding: .2rem .1rem; width: auto; text-decoration: underline;
+}
+.link-btn:hover { color: var(--over); }
+#goal-list:empty { display: none; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }

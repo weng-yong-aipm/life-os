@@ -1,0 +1,61 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { summarize, clampProgress, FDE_STARTER, MILESTONE_TRACK, CATEGORIES, STATUSES } from './goals.js';
+
+test('clampProgress rounds and bounds to 0..100', () => {
+  assert.equal(clampProgress(-5), 0);
+  assert.equal(clampProgress(150), 100);
+  assert.equal(clampProgress(42.6), 43);
+  assert.equal(clampProgress('abc'), 0);
+});
+
+test('summarize rolls up status, category, and mean progress', () => {
+  const goals = [
+    { title: 'FDE', category: 'role', status: 'active', progress: 20 },
+    { title: 'PMP', category: 'cert', status: 'done', progress: 100 },
+    { title: 'Scrum', category: 'cert', status: 'planned', progress: 0 },
+    { title: 'RAG', category: 'skill', status: 'active', progress: 60 },
+  ];
+  const r = summarize(goals);
+  assert.equal(r.total, 4);
+  assert.deepEqual(r.byStatus, { planned: 1, active: 2, done: 1 });
+  assert.deepEqual(r.byCategory.cert, { total: 2, done: 1 });
+  assert.deepEqual(r.byCategory.role, { total: 1, done: 0 });
+  assert.equal(r.overallProgress, 45); // (20+100+0+60)/4
+});
+
+test('summarize handles empty and unknown values safely', () => {
+  assert.deepEqual(summarize([]), {
+    total: 0, byStatus: { planned: 0, active: 0, done: 0 }, byCategory: {}, overallProgress: 0,
+  });
+  const r = summarize([{ title: 'x', category: 'bogus', status: 'bogus', progress: 10 }]);
+  assert.equal(r.byStatus.planned, 1); // unknown status -> planned
+  assert.equal(r.byCategory.skill.total, 1); // unknown category -> skill
+});
+
+test('FDE_STARTER is well-formed', () => {
+  assert.ok(FDE_STARTER.length >= 12);
+  for (const g of FDE_STARTER) {
+    assert.ok(g.title && typeof g.title === 'string');
+    assert.ok(CATEGORIES.includes(g.category), `bad category: ${g.category}`);
+    assert.ok(STATUSES.includes(g.status), `bad status: ${g.status}`);
+    assert.equal(clampProgress(g.progress), g.progress);
+  }
+  // covers the FDE competency skills + the certs the user named
+  const titles = FDE_STARTER.map((g) => g.title).join(' | ');
+  assert.match(titles, /RAG/);
+  assert.match(titles, /PMP/);
+  assert.match(titles, /\$20k/);
+});
+
+test('MILESTONE_TRACK is well-formed and ends at $20k', () => {
+  assert.ok(MILESTONE_TRACK.length >= 8);
+  for (const g of MILESTONE_TRACK) {
+    assert.ok(CATEGORIES.includes(g.category), `bad category: ${g.category}`);
+    assert.ok(STATUSES.includes(g.status), `bad status: ${g.status}`);
+    assert.equal(clampProgress(g.progress), g.progress);
+  }
+  const titles = MILESTONE_TRACK.map((g) => g.title).join(' | ');
+  assert.match(titles, /\$20k USD\/mo/);
+  assert.match(titles, /P0 ·/);
+});

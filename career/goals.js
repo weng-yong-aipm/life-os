@@ -1,0 +1,64 @@
+/* Pure Goals & Certs logic — no I/O. Categories, seed set, and progress rollups. */
+
+export const CATEGORIES = ['role', 'income', 'cert', 'course', 'skill'];
+export const STATUSES = ['planned', 'active', 'done'];
+
+/* Starter set: the FDE / $20k target, certs, courses, and the FDE competency
+ * skill map (from the 天道 FDE breakdown). Used by the "Seed FDE track" button. */
+export const FDE_STARTER = [
+  { title: 'Become a Forward Deployed Engineer (FDE)', category: 'role', status: 'active', progress: 20 },
+  { title: 'Land a ~$20k USD/mo remote role', category: 'income', status: 'active', progress: 10 },
+  { title: 'PMP', category: 'cert', status: 'planned', progress: 0 },
+  { title: 'Scrum / Agile (PSM)', category: 'cert', status: 'planned', progress: 0 },
+  { title: 'Claude Code Architect', category: 'cert', status: 'planned', progress: 0 },
+  { title: 'NVIDIA (AI / Deep Learning)', category: 'cert', status: 'planned', progress: 0 },
+  { title: 'AI Essentials', category: 'course', status: 'planned', progress: 0 },
+  { title: 'AI Fundamentals', category: 'course', status: 'planned', progress: 0 },
+  { title: 'LLMs / 大模型', category: 'skill', status: 'active', progress: 60 },
+  { title: 'RAG', category: 'skill', status: 'active', progress: 55 },
+  { title: 'Agent engineering / Agent 工程', category: 'skill', status: 'active', progress: 65 },
+  { title: 'API integration', category: 'skill', status: 'active', progress: 70 },
+  { title: 'Data pipelines / 数据处理', category: 'skill', status: 'active', progress: 45 },
+  { title: 'Systems integration / 系统集成', category: 'skill', status: 'planned', progress: 30 },
+];
+
+/* The laddered career roadmap (Malaysia → $20k/mo AI PM + FDE) as trackable
+ * milestones + income rungs. Seeded by the "Seed career ladder" button. */
+export const MILESTONE_TRACK = [
+  { title: 'P0 · Publish 2–3 public AI portfolio artifacts', category: 'role', status: 'active', progress: 25 },
+  { title: 'P0 · US-market resume + LinkedIn (AI PM / FDE)', category: 'role', status: 'planned', progress: 0 },
+  { title: 'P0 · First paid remote gig ($2–4k/mo)', category: 'income', status: 'planned', progress: 0 },
+  { title: 'P1 · Master agentic orchestration + evals + observability', category: 'skill', status: 'active', progress: 50 },
+  { title: 'P1 · Build in public — weekly AI PM/FDE posts', category: 'role', status: 'planned', progress: 0 },
+  { title: 'P1 · Steady remote contract ($5–8k/mo)', category: 'income', status: 'planned', progress: 0 },
+  { title: 'P2 · Land a location-agnostic AI PM / FDE role', category: 'role', status: 'planned', progress: 0 },
+  { title: 'P2 · Income $8–14k/mo', category: 'income', status: 'planned', progress: 0 },
+  { title: 'P3 · Senior seat or fractional consulting', category: 'role', status: 'planned', progress: 0 },
+  { title: 'P3 · Reach $20k USD/mo ($240k/yr)', category: 'income', status: 'planned', progress: 0 },
+];
+
+/* Clamp a progress value to a whole 0..100. */
+export function clampProgress(n) {
+  const v = Math.round(Number(n) || 0);
+  return Math.max(0, Math.min(100, v));
+}
+
+/* Roll goals up into an overview: totals, status counts, and per-category
+ * completion. overallProgress is the mean of every goal's progress. */
+export function summarize(goals) {
+  const total = goals.length;
+  const byStatus = { planned: 0, active: 0, done: 0 };
+  const byCategory = {};
+  let progressSum = 0;
+  for (const g of goals) {
+    const status = STATUSES.includes(g.status) ? g.status : 'planned';
+    byStatus[status] += 1;
+    const cat = CATEGORIES.includes(g.category) ? g.category : 'skill';
+    if (!byCategory[cat]) byCategory[cat] = { total: 0, done: 0 };
+    byCategory[cat].total += 1;
+    if (status === 'done') byCategory[cat].done += 1;
+    progressSum += clampProgress(g.progress);
+  }
+  const overallProgress = total ? Math.round(progressSum / total) : 0;
+  return { total, byStatus, byCategory, overallProgress };
+}

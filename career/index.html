@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>life-os — Goals & Certs</title>
+<link rel="stylesheet" href="../ui.css?v=6" />
+<link rel="manifest" href="../manifest.webmanifest" />
+</head>
+<body>
+<header>
+  <a href="../index.html">&larr; life-os</a>
+  <h1>Goals &amp; Certs</h1>
+</header>
+
+<section class="tab-panel active">
+  <div class="cols">
+    <div class="col">
+      <h2>Overview</h2>
+      <p id="goals-overview" class="hint">Sign in to track your goals.</p>
+
+      <h2>Add a goal</h2>
+      <form id="goal-form">
+        <label>Title <input type="text" id="goal-title" placeholder="e.g. AWS Solutions Architect" required /></label>
+        <label>Type
+          <select id="goal-category">
+            <option value="role">Role / outcome</option>
+            <option value="income">Income target</option>
+            <option value="cert">Certification</option>
+            <option value="course">Course</option>
+            <option value="skill" selected>Skill</option>
+          </select>
+        </label>
+        <label>Status
+          <select id="goal-status">
+            <option value="planned" selected>Planned</option>
+            <option value="active">Active</option>
+            <option value="done">Done</option>
+          </select>
+        </label>
+        <label>Progress (%) <input type="number" id="goal-progress" min="0" max="100" step="5" value="0" /></label>
+        <label>Target date <input type="date" id="goal-target" /></label>
+        <label>Note <textarea id="goal-note" rows="2"></textarea></label>
+        <button type="submit">Add goal</button>
+      </form>
+
+      <h2>Starter track</h2>
+      <p class="hint">Seed the FDE path in one click: the $20k / FDE targets, your certs (PMP, Scrum, Claude Code Architect, NVIDIA), courses, and the FDE competency skills.</p>
+      <button type="button" id="goal-seed">Seed FDE track</button>
+      <button type="button" id="goal-seed-ladder">Seed career ladder</button>
+      <p class="hint">Career ladder = the phased milestones + income rungs (P0→$20k/mo) from your roadmap.</p>
+      <div id="goal-status-msg"></div>
+    </div>
+
+    <div class="col">
+      <h2>Your track</h2>
+      <label>Filter <select id="goal-filter">
+        <option value="">All types</option>
+        <option value="role">Roles / outcomes</option>
+        <option value="income">Income</option>
+        <option value="cert">Certifications</option>
+        <option value="course">Courses</option>
+        <option value="skill">Skills</option>
+      </select></label>
+      <div id="goal-list"></div>
+    </div>
+  </div>
+</section>
+
+<script type="module" src="career.js"></script>
+</body>
+</html>
