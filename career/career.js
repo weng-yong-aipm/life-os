@@ -1,11 +1,12 @@
 import { GoalsRepo } from './goals-repo.js';
-import { summarize, FDE_STARTER, MILESTONE_TRACK, STATUSES } from './goals.js';
+import { summarize, FDE_STARTER, MILESTONE_TRACK, LEARNING_TRACK, STATUSES } from './goals.js';
 
 let cache = [];
 
 initForm();
 document.getElementById('goal-seed').addEventListener('click', () => onSeed(FDE_STARTER, 'FDE track'));
 document.getElementById('goal-seed-ladder').addEventListener('click', () => onSeed(MILESTONE_TRACK, 'career ladder'));
+document.getElementById('goal-seed-learning').addEventListener('click', () => onSeed(LEARNING_TRACK, 'learning track'));
 document.getElementById('goal-filter').addEventListener('change', render);
 refresh().catch(() => {});
 

@@ -1,6 +1,21 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { summarize, clampProgress, FDE_STARTER, MILESTONE_TRACK, CATEGORIES, STATUSES } from './goals.js';
+import { summarize, clampProgress, FDE_STARTER, MILESTONE_TRACK, LEARNING_TRACK, CATEGORIES, STATUSES } from './goals.js';
+
+test('all seed sets are well-formed with valid categories/statuses', () => {
+  for (const [name, set] of [['FDE_STARTER', FDE_STARTER], ['MILESTONE_TRACK', MILESTONE_TRACK], ['LEARNING_TRACK', LEARNING_TRACK]]) {
+    assert.ok(set.length >= 4, `${name} too small`);
+    for (const g of set) {
+      assert.ok(CATEGORIES.includes(g.category), `${name}: bad category ${g.category}`);
+      assert.ok(STATUSES.includes(g.status), `${name}: bad status ${g.status}`);
+      assert.equal(clampProgress(g.progress), g.progress, `${name}: unclamped progress`);
+    }
+  }
+  // learning track leads with the 4h quick win + names Python
+  const t = LEARNING_TRACK.map((g) => g.title).join(' | ');
+  assert.match(t, /Anthropic AI Fluency/);
+  assert.match(t, /Python/);
+});
 
 test('clampProgress rounds and bounds to 0..100', () => {
   assert.equal(clampProgress(-5), 0);

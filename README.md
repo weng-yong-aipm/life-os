@@ -1,9 +1,45 @@
 # life-os
 
-Personal life dashboard. Vanilla HTML/CSS/JS, no build step, installable PWA.
-Currently live: the **Finance** module (receipt scanning, manual expenses, OT
-pay calculator) and the **Health** module (meal + workout tracking). Other
-modules (career, learning, invest) are planned but not built yet.
+A personal, offline-first **life dashboard** — track spending, meals, workouts,
+learning, and career goals in one installable PWA. Built with **no framework and no
+build step**: vanilla ES-module JavaScript on a Supabase (Postgres) backend, with
+AI features powered by Claude vision.
+
+I built it to solve my own problem, and to keep a single, focused codebase where I
+could practice the full path from schema → row-level security → edge functions →
+tested UI, without a framework hiding the moving parts.
+
+**Live:** https://<your-deploy-url> · **Stack:** vanilla JS PWA · Supabase (Postgres + RLS + Storage + Edge Functions/Deno) · Claude vision · Node test runner
+
+## What it demonstrates
+
+- **Multi-tenant data security done properly.** Every table is protected by Postgres
+  **Row-Level Security** so each user can only read/write their own rows
+  (`auth.uid() = user_id`); Storage buckets are folder-scoped per user. See
+  [`supabase/schema.sql`](supabase/schema.sql).
+- **AI product features, not demos.** Snap a receipt or a meal photo → a Deno **edge
+  function** calls Claude vision → returns structured JSON (line items, macros) into
+  an editable review step before it's saved. See
+  [`supabase/functions/`](supabase/functions/).
+- **A clean module pattern that scales.** Each feature is `index.html` + a pure-logic
+  `.js` (unit-tested with the Node test runner) + a thin `*-repo.js` data layer over a
+  shared `db.js`. Pay math, nutrition, calorie-burn, and ISO-week rollups are all
+  covered by fast, dependency-free tests (`npm test`).
+- **Offline-first PWA.** A network-first service worker keeps the app usable offline
+  and fresh online; food/exercise datasets are bundled so search + portion math work
+  with no connection.
+- **A deliberate design system.** A hand-built, theme-aware ("Daybook") token system —
+  light/dark, responsive two-pane→single-column — in one `ui.css`, no UI library.
+
+## Modules
+
+| Module | What it does |
+| --- | --- |
+| **Finance** | Receipt scanning (Claude vision), manual expenses, and a Malaysia-aware OT pay calculator |
+| **Health** | Meal logging (photo estimate or offline food search + portion math) and workout tracking with MET-based calorie burn |
+| **Learning** | Logs learning sessions (抖音/IG → project → applied/rejected) with a weekly ISO-week review |
+| **Goals & Certs** | An FDE/AI-PM career tracker: roles, income targets, certs, and skills with progress bars |
+| Invest | *planned* |
 
 ## Setup
 

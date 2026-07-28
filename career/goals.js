@@ -37,6 +37,20 @@ export const MILESTONE_TRACK = [
   { title: 'P3 · Reach $20k USD/mo ($240k/yr)', category: 'income', status: 'planned', progress: 0 },
 ];
 
+/* The actionable learning track from the brutal plan: the 4 real skill gaps +
+ * the priority certs (S/A tier), distinct from the competency seed. Titles are
+ * prefixed so they never collide with FDE_STARTER on re-seed. */
+export const LEARNING_TRACK = [
+  { title: 'Learn: Python for AI/ML (Kaggle → DeepLearning.AI)', category: 'skill', status: 'active', progress: 20 },
+  { title: 'Learn: Framework vocabulary (LangGraph/CrewAI/Ragas/LangSmith)', category: 'skill', status: 'active', progress: 40 },
+  { title: 'Learn: Cloud + deploy (AWS, Docker/K8s)', category: 'skill', status: 'planned', progress: 15 },
+  { title: 'Learn: Public technical writing (weekly posts)', category: 'skill', status: 'planned', progress: 5 },
+  { title: 'Cert: Anthropic AI Fluency (4h — do first)', category: 'cert', status: 'active', progress: 0 },
+  { title: 'Cert: AWS Cloud Practitioner → ML', category: 'cert', status: 'planned', progress: 0 },
+  { title: 'Cert: NVIDIA DLI — RAG Agents', category: 'cert', status: 'planned', progress: 0 },
+  { title: 'Cert: DeepLearning.AI — Agents/RAG', category: 'cert', status: 'planned', progress: 0 },
+];
+
 /* Clamp a progress value to a whole 0..100. */
 export function clampProgress(n) {
   const v = Math.round(Number(n) || 0);
