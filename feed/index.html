@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>life-os — Feed</title>
+<link rel="stylesheet" href="../ui.css?v=6" />
+<link rel="manifest" href="../manifest.webmanifest" />
+</head>
+<body>
+<header>
+  <a href="../index.html">&larr; life-os</a>
+  <h1>Feed</h1>
+</header>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="feed">Feed</button>
+  <button class="tab-btn" data-tab="digest">Weekly digest</button>
+</nav>
+
+<section id="tab-feed" class="tab-panel active">
+  <p class="hint">Auto-pulled from your top-AI-creator follow-list and summarized.
+    Run <code>node scripts/ingest-feed.mjs</code> on your Mac to fetch new items, then triage:
+    <strong>Apply</strong>/<strong>Consider</strong> copy the item into your Learning log; <strong>Reject</strong> hides it.</p>
+  <label>Filter <select id="feed-filter">
+    <option value="new" selected>Unreviewed</option>
+    <option value="applied">Applied</option>
+    <option value="considering">Considering</option>
+    <option value="rejected">Rejected</option>
+    <option value="">All</option>
+  </select></label>
+  <div id="feed-status" class="hint"></div>
+  <ul id="feed-list" class="feed-list"></ul>
+</section>
+
+<section id="tab-digest" class="tab-panel">
+  <h2>This week</h2>
+  <p id="digest-head" class="hint"></p>
+  <p id="digest-counts"></p>
+  <h3>By platform</h3>
+  <ul id="digest-platforms"></ul>
+  <h2>Export for NotebookLM</h2>
+  <p class="hint">Copy this into your "Weekly Learning" Google Doc (the synced NotebookLM source), then Sync + generate an Audio Overview.</p>
+  <button type="button" id="digest-copy">Copy Markdown</button>
+  <textarea id="digest-md" rows="14" readonly></textarea>
+</section>
+
+<script type="module" src="feed-ui.js"></script>
+</body>
+</html>
