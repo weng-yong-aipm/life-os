@@ -9,7 +9,7 @@ I built it to solve my own problem, and to keep a single, focused codebase where
 could practice the full path from schema → row-level security → edge functions →
 tested UI, without a framework hiding the moving parts.
 
-**Live:** https://<your-deploy-url> · **Stack:** vanilla JS PWA · Supabase (Postgres + RLS + Storage + Edge Functions/Deno) · Claude vision · Node test runner
+**Live:** https://yongsnsoft2025-a11y.github.io/life-os/ · **Stack:** vanilla JS PWA · Supabase (Postgres + RLS + Storage + Edge Functions/Deno) · Claude vision · Node test runner
 
 ## What it demonstrates
 
