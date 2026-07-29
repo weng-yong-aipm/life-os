@@ -172,9 +172,19 @@ Realtime) that runs both directions automatically instead of by hand.
   audio-overview/podcast feature; the generated artifact link is logged back. Treated
   as best-effort, not a hard dependency.
 
-New table `learning_materials` (id, source, source_key, learning_session_id, kind
-[guide|flashcards|quiz|notebooklm], content jsonb, created_at) + a **Materials** tab
-in the Learning module.
+New table `learning_materials` (id, user_id, learning_session_id, model, content
+jsonb, created_at) + a **Materials** tab in the Learning module.
+
+**v1 shipped (2026-07-29): Claude generator (NotebookLM deferred as optional).**
+`learning/study-material.js` (pure `buildRequest`/`parseMaterial`, 6 tests) uses
+Claude structured outputs (`output_config.format`, `thinking: disabled`, model
+`claude-opus-5`, swappable) → `{guide, flashcards[], quiz[]}`. `tools/gen-materials.mjs`
+(dependency-free fetch to the Anthropic + PostgREST APIs, password-grant) upserts
+into `learning_materials` on `(user_id, learning_session_id)` (idempotent). Migration
+`20260729091040` applied. **Verified live on 1 row** (~1 Claude call): produced an
+interview-grade guide + 6 flashcards + 3-question quiz from the 抖音 "message-queue /
+long agent tasks" item. BILLABLE — `node tools/gen-materials.mjs [limit]`, default 1.
+**Remaining:** the Learning **Materials** tab UI, and the optional NotebookLM push.
 
 ---
 
