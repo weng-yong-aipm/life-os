@@ -143,6 +143,14 @@ overwritten by the owner on next sync (no merge logic needed for v1).
 **Result:** every tracked item is browsable/linkable/searchable in Obsidian (graph,
 backlinks, plugins) *and* queryable in life-os — the "trains on you over time" vision.
 
+**v1 shipped (2026-07-29):** the **export half** (Supabase → Obsidian, the
+"knowledge=Obsidian" direction). `learning/obsidian-export.js` (pure `toNote`,
+5 tests) + `tools/export-obsidian.mjs` (dependency-free fetch/PostgREST,
+password-grant). Writes one stable-named `.md` per learning_sessions row into
+`~/life-os-vault/learning/` with join-key frontmatter; re-run overwrites in place
+(idempotent). Verified live: 80 notes. **Remaining for W2 full:** the reverse
+(vault → Supabase) file-watch + the always-on bridge daemon.
+
 ---
 
 ## 6. W3 — Learning-material generation (Learning module)
