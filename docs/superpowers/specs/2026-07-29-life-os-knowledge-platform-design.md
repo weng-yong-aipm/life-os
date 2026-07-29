@@ -68,29 +68,35 @@ conventional web work.
 
 ---
 
-## 4. W4 — Universal task/entity ID + dedup foundation (build FIRST)
+## 4. W4 — Import-dedup foundation (build FIRST)
 
-The cheap, cross-cutting base that every connector relies on. Generalizes the 抖音
-video-id dedup so *any* source (Obsidian, NotebookLM, manual, a platform import)
-is idempotent.
+**Corrected during implementation (2026-07-29).** The original plan was to blanket-add
+`source`/`source_key` to *every* table. Execution revealed that collides with existing
+domain columns and duplicates an existing pattern:
+- `meals.source` already means *logging method* (`photo`/`search`/`manual`).
+- `learning_sessions.source` already means *capture platform* (`douyin`/`instagram`/`other`).
+- `feed_items` already dedups via `unique(user_id, external_id)` + a `platform` column.
 
-**Schema change — add to every table:**
+So the correct, codebase-consistent design (follow `feed_items`' pattern, don't invent a
+parallel one): **dedup only where external imports actually land, using `external_id`,
+reusing each table's existing `source`.** Finance/health/career rows are manual-entry —
+they get dedup columns only when a real importer needs them (YAGNI).
+
+**Delivered schema (learning_sessions — the 抖音/Obsidian import target):**
 
 | Column | Meaning |
 |---|---|
-| `id uuid` (already PK) | internal stable id |
-| `source text not null default 'manual'` | `manual` \| `obsidian` \| `douyin` \| `notebooklm` \| `lark` \| `gdrive` |
-| `source_key text` | the origin's own id (抖音 video id, Obsidian note UID, receipt hash…) |
-| `synced_at timestamptz` | last bridge sync (null = never) |
+| `source text` (pre-existing) | capture platform, extended to include `obsidian`/`notebooklm` (plain text, no enum) |
+| `external_id text` (new) | the origin's own id (抖音 video id, Obsidian note UID) |
+| `synced_at timestamptz` (new) | last bridge sync (null = never) |
 
-**Constraint:** `UNIQUE (user_id, source, source_key)` where `source_key is not null`.
-Re-import = `upsert on conflict (user_id, source, source_key)` → **idempotent by construction.**
+**Constraint:** `unique (user_id, source, external_id) where external_id is not null`.
+Re-import = `upsert on conflict (user_id, source, external_id)` → **idempotent by construction.**
+`feed_items` already satisfies this via its own `(user_id, external_id)` unique.
 
-- Existing rows backfill `source='manual'`, `source_key = null` (untouched, still unique by `id`).
-- Delivered as one Supabase migration + a tiny `withSource()` helper in `db.js` so
-  every `*-repo.js` stamps source/source_key on insert. No behavior change to current UI.
-
-This is small (one migration, one helper, repo touch-ups) and unblocks W2/W3/W5.
+No helper file and no repo-insert changes were needed (the manual `add()` paths keep
+their existing `source`; the importer that sets `external_id` arrives in W5). Delivered
+as two migrations (the corrective one supersedes the initial blanket attempt).
 
 ---
 

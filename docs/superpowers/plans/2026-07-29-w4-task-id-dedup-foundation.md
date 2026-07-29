@@ -2,6 +2,16 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **⚠️ SUPERSEDED (2026-07-29 during execution).** Task 1 (`source.js`) and Task 3
+> (blanket repo wiring) were **abandoned**: the blanket `source`/`source_key` design
+> collided with existing columns (`meals.source`, `learning_sessions.source`) and
+> duplicated `feed_items`' own `(user_id, external_id)` dedup. **What actually shipped:**
+> a corrective migration scoping dedup to `learning_sessions` via `external_id`
+> (reusing its existing `source`), matching the `feed_items` pattern. See spec §4
+> (corrected) and migrations `*_add_source_dedup.sql` (initial) +
+> `*_fix_dedup_scope.sql` (correction). Task 2's migration mechanics below are still
+> the reference for how migrations get applied in this project.
+
 **Goal:** Give every life-os record table a `source` + `source_key` so any external import (Obsidian, 抖音, NotebookLM, …) is idempotent by construction — nothing is ever imported or advised twice.
 
 **Architecture:** One additive Supabase migration adds `source`/`source_key`/`synced_at` columns plus a partial unique index `(user_id, source, source_key) where source_key is not null` to each record table. A tiny pure helper (`source.js`) stamps the fields; existing repo inserts call it so every row explicitly carries a source. No behavior changes — manual rows get `source='manual', source_key=null` (nulls don't collide). The first *consumer* of the upsert-by-source-key (the 抖音 importer) is deliberately deferred to W5; this plan only lays the foundation and proves it with unit tests + a regression check.
