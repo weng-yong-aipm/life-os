@@ -566,6 +566,20 @@ ul:empty { display: none; }
 .link-btn.active { color: var(--accent); font-weight: 600; text-decoration: none; }
 #digest-md { width: 100%; font-family: var(--mono); font-size: .78rem; }
 
+/* Learning — Materials tab */
+.material-card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: .8rem 1rem; margin-bottom: .8rem;
+}
+.material-card > summary { font-weight: 600; cursor: pointer; color: var(--ink); }
+.material-guide { white-space: pre-wrap; font-size: .9rem; color: var(--muted); margin: .6rem 0; }
+.material-card h4 { margin: .8rem 0 .3rem; font-size: .85rem; color: var(--accent-ink); }
+.flashcard, .quiz-q { border-left: 2px solid var(--line-strong); padding: .3rem .6rem; margin: .3rem 0; }
+.flashcard > summary, .quiz-q > summary { cursor: pointer; font-size: .9rem; }
+.flashcard p { font-size: .88rem; color: var(--muted); margin: .3rem 0 0; }
+.quiz-q ul { margin: .3rem 0 0; padding-left: 1.1rem; font-size: .88rem; }
+.quiz-q li.correct { color: var(--good); font-weight: 600; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }

@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>life-os — Learning</title>
-<link rel="stylesheet" href="../ui.css?v=5" />
+<link rel="stylesheet" href="../ui.css?v=7" />
 <link rel="stylesheet" href="../shell.css?v=1" />
 <script type="module" src="../shell.js"></script>
 <link rel="manifest" href="../manifest.webmanifest" />
@@ -18,6 +18,7 @@
 <nav class="tabs">
   <button class="tab-btn active" data-tab="log">Log</button>
   <button class="tab-btn" data-tab="weekly">Weekly</button>
+  <button class="tab-btn" data-tab="materials">Materials</button>
 </nav>
 
 <section id="tab-log" class="tab-panel active">
@@ -80,6 +81,12 @@
   <ul id="weekly-applied"></ul>
   <h3>Rejected — not a fit</h3>
   <ul id="weekly-rejected"></ul>
+</section>
+
+<section id="tab-materials" class="tab-panel">
+  <h2>Study materials</h2>
+  <p class="hint">AI-generated guide, flashcards, and a quiz for each learning item. Generate with <code>node tools/gen-materials.mjs [limit]</code>.</p>
+  <div id="materials-list"></div>
 </section>
 
 <script type="module" src="learning.js"></script>

@@ -1,4 +1,5 @@
 import { LearningRepo } from './learning-repo.js';
+import { MaterialsRepo } from './materials-repo.js';
 import { isoWeekKey, summarizeWeek } from './weekly.js';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -17,6 +18,7 @@ function initTabs() {
       btn.classList.add('active');
       document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
       if (btn.dataset.tab === 'weekly') refreshWeekly();
+      if (btn.dataset.tab === 'materials') refreshMaterials();
     });
   });
 }
@@ -131,4 +133,83 @@ function fillList(id, items) {
     li.textContent = text;
     el.appendChild(li);
   }
+}
+
+/* ---------------- Materials tab ---------------- */
+
+async function refreshMaterials() {
+  const wrap = document.getElementById('materials-list');
+  wrap.innerHTML = '';
+  let rows;
+  try {
+    rows = await MaterialsRepo.list();
+  } catch (err) {
+    wrap.appendChild(hint(`Could not load materials (${err.message}).`));
+    return;
+  }
+  if (!MaterialsRepo.cloudEnabled) { wrap.appendChild(hint('Materials need cloud sync — enable Supabase in config.js.')); return; }
+  if (!rows.length) { wrap.appendChild(hint('No materials yet — run `node tools/gen-materials.mjs` to generate some.')); return; }
+  for (const m of rows) wrap.appendChild(materialCard(m));
+}
+
+function hint(text) {
+  const p = document.createElement('p');
+  p.className = 'hint';
+  p.textContent = text;
+  return p;
+}
+
+function materialCard(m) {
+  const card = document.createElement('details');
+  card.className = 'material-card';
+  const sum = document.createElement('summary');
+  sum.textContent = m.title;
+  card.appendChild(sum);
+
+  if (m.guide) {
+    const g = document.createElement('p');
+    g.className = 'material-guide';
+    g.textContent = m.guide;
+    card.appendChild(g);
+  }
+
+  if (m.flashcards.length) {
+    const h = document.createElement('h4');
+    h.textContent = 'Flashcards';
+    card.appendChild(h);
+    for (const f of m.flashcards) {
+      const d = document.createElement('details');
+      d.className = 'flashcard';
+      const s = document.createElement('summary');
+      s.textContent = f.front;
+      const a = document.createElement('p');
+      a.textContent = f.back;
+      d.append(s, a);
+      card.appendChild(d);
+    }
+  }
+
+  if (m.quiz.length) {
+    const h = document.createElement('h4');
+    h.textContent = 'Quiz';
+    card.appendChild(h);
+    for (const q of m.quiz) {
+      const d = document.createElement('details');
+      d.className = 'quiz-q';
+      const s = document.createElement('summary');
+      s.textContent = q.question;
+      d.appendChild(s);
+      const ul = document.createElement('ul');
+      for (const choice of q.choices || []) {
+        const li = document.createElement('li');
+        li.textContent = choice;
+        if (choice === q.answer) li.className = 'correct';
+        ul.appendChild(li);
+      }
+      d.appendChild(ul);
+      card.appendChild(d);
+    }
+  }
+
+  return card;
 }

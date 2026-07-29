@@ -1,7 +1,7 @@
 /* Offline caching for the PWA shell.
  * Network-first: always try the network so updates appear immediately when
  * online; fall back to cache only when offline. Bump CACHE on shell changes. */
-const CACHE = 'life-os-v6';
+const CACHE = 'life-os-v7';
 const ASSETS = [
   './',
   './index.html',
@@ -34,6 +34,7 @@ const ASSETS = [
   './learning/index.html',
   './learning/learning.js',
   './learning/learning-repo.js',
+  './learning/materials-repo.js',
   './learning/weekly.js',
   './career/index.html',
   './career/career.js',
