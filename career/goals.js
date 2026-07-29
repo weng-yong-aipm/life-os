@@ -51,6 +51,17 @@ export const LEARNING_TRACK = [
   { title: 'Cert: DeepLearning.AI — Agents/RAG', category: 'cert', status: 'planned', progress: 0 },
 ];
 
+/* The AI-PM competency rubric distilled from the 可颂 收藏 clip (2026-07-29 抖音
+ * review): the 5 capabilities a big-tech AI PM is hired on. Skills, prefixed so
+ * they never collide with the other seeds. Seeded by "Seed AI-PM rubric". */
+export const AI_PM_RUBRIC = [
+  { title: 'PM: Structured requirement decomposition', category: 'skill', status: 'active', progress: 55 },
+  { title: 'PM: Fast demoable MVP (idea → clickable)', category: 'skill', status: 'active', progress: 50 },
+  { title: 'PM: Basic architecture literacy (spec to devs)', category: 'skill', status: 'active', progress: 45 },
+  { title: 'PM: AI full-flow leverage (whole pipeline)', category: 'skill', status: 'active', progress: 60 },
+  { title: 'PM: Judging AI-code boundaries (what to trust)', category: 'skill', status: 'active', progress: 50 },
+];
+
 /* Clamp a progress value to a whole 0..100. */
 export function clampProgress(n) {
   const v = Math.round(Number(n) || 0);

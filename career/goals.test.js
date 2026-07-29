@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { summarize, clampProgress, FDE_STARTER, MILESTONE_TRACK, LEARNING_TRACK, CATEGORIES, STATUSES } from './goals.js';
+import { summarize, clampProgress, FDE_STARTER, MILESTONE_TRACK, LEARNING_TRACK, AI_PM_RUBRIC, CATEGORIES, STATUSES } from './goals.js';
 
 test('all seed sets are well-formed with valid categories/statuses', () => {
-  for (const [name, set] of [['FDE_STARTER', FDE_STARTER], ['MILESTONE_TRACK', MILESTONE_TRACK], ['LEARNING_TRACK', LEARNING_TRACK]]) {
+  for (const [name, set] of [['FDE_STARTER', FDE_STARTER], ['MILESTONE_TRACK', MILESTONE_TRACK], ['LEARNING_TRACK', LEARNING_TRACK], ['AI_PM_RUBRIC', AI_PM_RUBRIC]]) {
     assert.ok(set.length >= 4, `${name} too small`);
     for (const g of set) {
       assert.ok(CATEGORIES.includes(g.category), `${name}: bad category ${g.category}`);
@@ -15,6 +15,9 @@ test('all seed sets are well-formed with valid categories/statuses', () => {
   const t = LEARNING_TRACK.map((g) => g.title).join(' | ');
   assert.match(t, /Anthropic AI Fluency/);
   assert.match(t, /Python/);
+  // the AI-PM rubric carries all 5 capabilities
+  assert.equal(AI_PM_RUBRIC.length, 5);
+  assert.match(AI_PM_RUBRIC.map((g) => g.title).join(' | '), /requirement decomposition/);
 });
 
 test('clampProgress rounds and bounds to 0..100', () => {
