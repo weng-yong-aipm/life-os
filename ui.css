@@ -552,6 +552,20 @@ ul:empty { display: none; }
 .link-btn:hover { color: var(--over); }
 #goal-list:empty { display: none; }
 
+/* Feed module */
+.feed-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .6rem; }
+.feed-card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: .8rem .9rem; display: flex; flex-direction: column; gap: .45rem;
+}
+.feed-head { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; }
+.feed-title { font-weight: 600; color: var(--ink); text-decoration: none; }
+.feed-title:hover { text-decoration: underline; }
+.feed-summary { font-size: .85rem; color: var(--muted); margin: 0; }
+.feed-actions { display: flex; gap: .8rem; }
+.link-btn.active { color: var(--accent); font-weight: 600; text-decoration: none; }
+#digest-md { width: 100%; font-family: var(--mono); font-size: .78rem; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
