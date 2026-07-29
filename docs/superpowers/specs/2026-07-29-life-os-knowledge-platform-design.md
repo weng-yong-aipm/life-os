@@ -143,13 +143,18 @@ overwritten by the owner on next sync (no merge logic needed for v1).
 **Result:** every tracked item is browsable/linkable/searchable in Obsidian (graph,
 backlinks, plugins) *and* queryable in life-os — the "trains on you over time" vision.
 
-**v1 shipped (2026-07-29):** the **export half** (Supabase → Obsidian, the
-"knowledge=Obsidian" direction). `learning/obsidian-export.js` (pure `toNote`,
-5 tests) + `tools/export-obsidian.mjs` (dependency-free fetch/PostgREST,
-password-grant). Writes one stable-named `.md` per learning_sessions row into
-`~/life-os-vault/learning/` with join-key frontmatter; re-run overwrites in place
-(idempotent). Verified live: 80 notes. **Remaining for W2 full:** the reverse
-(vault → Supabase) file-watch + the always-on bridge daemon.
+**v1 shipped (2026-07-29): both directions, run-by-hand.**
+- **Export (Supabase → Obsidian):** `learning/obsidian-export.js` (pure `toNote`,
+  5 tests) + `tools/export-obsidian.mjs`. One stable-named `.md` per
+  learning_sessions row in `~/life-os-vault/learning/` with join-key frontmatter.
+  Verified live: 80 notes, idempotent.
+- **Reverse (Obsidian → Supabase):** `learning/obsidian-parse.js` (pure `parseNote`,
+  round-trip tested, 4 tests) + `tools/import-obsidian.mjs`. Pushes Obsidian's
+  authoritative prose (title + summary) back, matched by `lifeos_id`; structured
+  fields never touched. Verified live: a note edit reached the DB; idempotent.
+
+**Remaining for W2 full:** the always-on bridge daemon (chokidar file-watch +
+Realtime) that runs both directions automatically instead of by hand.
 
 ---
 
