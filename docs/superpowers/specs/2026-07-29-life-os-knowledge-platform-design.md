@@ -153,8 +153,14 @@ backlinks, plugins) *and* queryable in life-os — the "trains on you over time"
   authoritative prose (title + summary) back, matched by `lifeos_id`; structured
   fields never touched. Verified live: a note edit reached the DB; idempotent.
 
-**Remaining for W2 full:** the always-on bridge daemon (chokidar file-watch +
-Realtime) that runs both directions automatically instead of by hand.
+**W2 daemon shipped (2026-07-29).** `tools/lifeos-bridge.mjs` — run-by-hand
+long-running daemon: initial full export, `fs.watch` (built-in, no chokidar) →
+debounced reverse-sync, 30s re-export poll. **Loop-prevention** via a pure,
+unit-tested `tools/loop-guard.js` (content-hash + TTL: ignore the daemon's own
+write echoes; a user edit changes the hash → synced). Built + adversarially
+verified via workflow — loop-prevention PASSED; the found lost-update race (poll
+clobbering an in-flight edit) is fixed (skip re-writing paths with a pending edit
+or divergent on-disk content). 6 loop-guard tests pass.
 
 ---
 
@@ -184,7 +190,12 @@ into `learning_materials` on `(user_id, learning_session_id)` (idempotent). Migr
 `20260729091040` applied. **Verified live on 1 row** (~1 Claude call): produced an
 interview-grade guide + 6 flashcards + 3-question quiz from the 抖音 "message-queue /
 long agent tasks" item. BILLABLE — `node tools/gen-materials.mjs [limit]`, default 1.
-**Remaining:** the Learning **Materials** tab UI, and the optional NotebookLM push.
+**Both shipped (2026-07-29).** Materials tab UI live (`materials-repo.js` + collapsible
+guide/flashcards/quiz cards); full 80-row batch generated (80/80 items have materials).
+**NotebookLM push** = `tools/push-notebooklm.mjs` + pure `learning/notebooklm-bundle.js`
+(3 tests) — honest, no fake API: assembles all materials into one uploadable markdown
+source at `~/life-os-vault/notebooklm/learnings-<label>.md` (verified live: 80 items,
+300KB). User adds it to a NotebookLM notebook for chat/audio-overview.
 
 ---
 
