@@ -117,8 +117,22 @@ free-form markdown body (the human-editable knowledge)
 **Sync (bridge daemon):**
 - Watches the vault (chokidar) → on change, upsert the row into Supabase keyed by `(source, source_key)`.
 - Polls Supabase (or Realtime) → on new/changed row, writes/updates the matching `.md`.
-- **Conflict policy:** last-write-wins by `updated` timestamp; **Supabase is the system of record** for structured fields, Obsidian body is authoritative for prose. (Simple, good enough for one user.)
 - Runtime: run `node tools/lifeos-bridge.mjs` on demand for v1; optional LaunchAgent for always-on later.
+
+**Authority — split by data type (not one global SoR).** This is the pattern the
+抖音 creators actually use (坏猫404's Karpathy 知识库: markdown *is* the brain,
+frictionless-capture + continuous-output; 起点's Obsidian 工作台: Obsidian holds the
+knowledge, the app is a workbench on top) and matches Karpathy's "knowledge base, not
+RAG":
+
+| Data | System of record | Sync role of the other side |
+|---|---|---|
+| **Structured tracker numbers** (receipts, pay hours, kg×reps, macros, goal %) | **Supabase** | Obsidian gets a read-only mirror note for linking/search |
+| **Knowledge / prose** (learning notes, captured 抖音/ideas, second-brain) | **Obsidian** (markdown canonical) | Supabase stores an index row (title, tags, `source_key`) for app display + search only |
+
+So numbers live in Postgres; the "brain" lives in markdown. Conflict handling is then
+trivial — each field has exactly one owner, so a change on the non-owning side is
+overwritten by the owner on next sync (no merge logic needed for v1).
 
 **Result:** every tracked item is browsable/linkable/searchable in Obsidian (graph,
 backlinks, plugins) *and* queryable in life-os — the "trains on you over time" vision.
@@ -188,9 +202,12 @@ Each phase gets its own spec → plan → implement cycle. This doc is the umbre
 
 1. **Bridge always-on?** v1 = run by hand; LaunchAgent later. OK?
 2. **Vault location** `~/life-os-vault/` (new, dedicated) — confirm you want a fresh vault, not an existing one.
-3. **System of record** = Supabase for structured fields, Obsidian body for prose. OK, or should Obsidian be fully authoritative?
+3. **System of record** — ✅ **RESOLVED (2026-07-29): split by data type** — Supabase authoritative for structured tracker numbers, Obsidian authoritative for knowledge/prose (per §5). Grounded in the 抖音 creators' pattern + Karpathy "knowledge base, not RAG".
 4. **NotebookLM** stays *optional/best-effort* (Claude is the reliable generator). Agree?
 5. **Bridge secret** uses the existing service-role key in `.env` — it runs only on your Mac, never shipped. OK.
+
+**Phase order — ✅ RESOLVED (2026-07-29): W4 first, then W1** (W4 is the invisible
+prerequisite for all sync/dedup; W1 is independent so no rework either way).
 
 ---
 
