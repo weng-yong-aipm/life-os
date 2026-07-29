@@ -9,9 +9,10 @@ const MODULES = [
   { key: 'career', href: 'career/index.html', ico: '💼', name: 'Goals & Certs' },
   { key: 'learning', href: 'learning/index.html', ico: '📚', name: 'Learning' },
   { key: 'feed', href: 'feed/index.html', ico: '📡', name: 'Feed' },
+  { key: 'improve', href: 'improve/index.html', ico: '✨', name: 'Improve' },
 ];
 
-const DIRS = ['finance', 'health', 'career', 'learning', 'feed'];
+const DIRS = ['finance', 'health', 'career', 'learning', 'feed', 'improve'];
 const inSub = DIRS.some((d) => location.pathname.includes(`/${d}/`));
 const base = inSub ? '../' : './';
 const activeKey = DIRS.find((d) => location.pathname.includes(`/${d}/`)) || 'home';

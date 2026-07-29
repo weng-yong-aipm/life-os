@@ -40,6 +40,10 @@ const ASSETS = [
   './career/career.js',
   './career/goals-repo.js',
   './career/goals.js',
+  './improve/index.html',
+  './improve/improve.js',
+  './improve/improve-repo.js',
+  './improve/coach.js',
 ];
 
 self.addEventListener('install', (e) => {
