@@ -1,12 +1,16 @@
 #!/usr/bin/env node
 /* On-demand feed ingest for the life-os Feed module.
  *
- *   node scripts/ingest-feed.mjs [rss|youtube|all] [--limit N] [--no-transcript] [--dry]
+ *   node scripts/ingest-feed.mjs [rss|youtube|x|reddit|instagram|douyin|bilibili|all] \
+ *        [--limit N] [--no-transcript] [--dry]
  *
- * Pulls recent items from the READY platforms in feed/sources.js (RSS + YouTube
- * via yt-dlp), summarizes each with the Claude API, and inserts them into the
- * Supabase `feed_items` table (existing rows are left untouched, so your triage
- * survives re-runs). Then open the Feed page and triage.
+ * Pulls recent items from feed/sources.js, summarizes each with the Claude API,
+ * and inserts them into the Supabase `feed_items` table (existing rows are left
+ * untouched, so your triage survives re-runs). Then open the Feed page to triage.
+ *
+ *   rss / youtube      — built-in fetchers (fetch + yt-dlp).
+ *   x/reddit/instagram/douyin/bilibili — via OpenCLI over your logged-in Chrome
+ *                        session. `all` only pulls the ones you're signed into.
  *
  * Needs in .env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY.
  * Optional: LIFE_OS_USER_ID (else the first auth user is used), FEED_MODEL.
@@ -17,6 +21,7 @@ import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { SOURCES, PLATFORMS } from '../feed/sources.js';
 
@@ -149,12 +154,64 @@ function ytTranscript(videoUrl) {
   finally { try { rmSync(dir, { recursive: true, force: true }); } catch { /* ignore */ } }
 }
 
+/* ---------- OpenCLI (login-gated platforms via your Chrome session) ---------- */
+// platform key → [adapter, cmd, ...args] built from a source, or null if the
+// source has no usable identifier (e.g. a Bilibili entry that links to X, not a space).
+const OPENCLI = {
+  x:         (s) => ['twitter', 'tweets', s.handle.replace(/^@/, '')],
+  instagram: (s) => ['instagram', 'user', s.handle.replace(/^@/, '')],
+  reddit:    (s) => ['reddit', 'subreddit', s.handle.replace(/^r\//, ''), '--sort', 'top', '--time', 'week'],
+  bilibili:  (s) => { const m = s.url.match(/space\.bilibili\.com\/(\d+)/); return m ? ['bilibili', 'user-videos', m[1]] : null; },
+  douyin:    (s) => { const m = s.url.match(/douyin\.com\/user\/([\w-]+)/); return m ? ['douyin', 'user-videos', m[1]] : null; },
+};
+const OPENCLI_PLATFORMS = Object.keys(OPENCLI);
+const adapterOf = (p) => (p === 'x' ? 'twitter' : p);
+
+function opencliLoggedIn(platform) {
+  try {
+    const out = execFileSync('opencli', [adapterOf(platform), 'whoami'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    return !/AUTH_REQUIRED|ok:\s*false/i.test(out);
+  } catch { return false; }
+}
+
+function fetchOpenCli(platform, src, limit) {
+  const cmd = OPENCLI[platform](src);
+  if (!cmd) return [];
+  const out = execFileSync('opencli', [...cmd, '--limit', String(limit), '-f', 'json'],
+    { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+  let arr = JSON.parse(out);
+  if (!Array.isArray(arr)) arr = arr.items || arr.data || [];
+  return arr.slice(0, limit).map((it) => {
+    const title = String(it.title || it.text || it.caption || it.desc || it.content || it.name || '')
+      .replace(/\s+/g, ' ').trim();
+    const url = it.url || it.link || it.permalink || src.url;
+    const id = it.id || it.tweet_id || it.note_id || it.aweme_id || it.bvid || it.rpid || null;
+    const dateRaw = it.date || it.created_at || it.publishedAt || it.published_at || it.time || it.create_time;
+    // Prefer a real post id; otherwise a stable hash so re-runs dedupe and preserve triage.
+    const externalId = id
+      ? String(id)
+      : `${src.handle}:${createHash('sha1').update(`${title}|${dateRaw || ''}`).digest('hex').slice(0, 12)}`;
+    return {
+      externalId,
+      url,
+      title: (title || '(untitled)').slice(0, 200),
+      publishedAt: normDate(dateRaw),
+      content: String(it.content || it.text || it.caption || it.desc || title),
+      durationSec: it.duration ? Math.round(Number(it.duration)) : null,
+    };
+  }).filter((i) => i.title && i.title !== '(untitled)');
+}
+
 /* ---------- main ---------- */
 function targetPlatforms() {
-  const ready = Object.entries(PLATFORMS).filter(([, p]) => p.ready).map(([k]) => k);
-  if (which === 'all') return ready.filter((p) => p === 'rss' || p === 'youtube'); // built-in fetchers so far
-  if (!ready.includes(which)) throw new Error(`Platform "${which}" is not ready. Ready: ${ready.join(', ')}`);
-  return [which];
+  if (which === 'all') {
+    const live = OPENCLI_PLATFORMS.filter((p) => opencliLoggedIn(p));
+    if (live.length) console.log(`OpenCLI signed in: ${live.join(', ')}`);
+    return ['rss', 'youtube', ...live];
+  }
+  if (which === 'rss' || which === 'youtube' || OPENCLI_PLATFORMS.includes(which)) return [which];
+  throw new Error(`Platform "${which}" not supported. Try: rss, youtube, ${OPENCLI_PLATFORMS.join(', ')}, or all.`);
 }
 
 async function run() {
@@ -170,7 +227,8 @@ async function run() {
     for (const src of srcs) {
       try {
         const raw = platform === 'rss' ? await fetchRss(src, LIMIT)
-          : ytList(src.url, LIMIT).map((v) => ({ ...v, content: ytTranscript(v.url) }));
+          : platform === 'youtube' ? ytList(src.url, LIMIT).map((v) => ({ ...v, content: ytTranscript(v.url) }))
+          : fetchOpenCli(platform, src, LIMIT);
         for (const it of raw) {
           const content = it.content || it.title;
           const { summary, topics } = DRY && !ENV.ANTHROPIC_API_KEY
