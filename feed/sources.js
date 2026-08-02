@@ -1,3 +1,5 @@
+import { PEOPLE } from './people.js';
+
 /* Curated follow-list for the Feed module — the "top AI creators per platform"
  * the ingest script pulls from. Pure data, no I/O.
  *
@@ -20,6 +22,8 @@ export const PLATFORMS = {
   instagram: { label: 'Instagram/Threads', channel: 'instagram', ready: false, note: 'opencli + login instagram.com; no public read API.' },
   douyin:    { label: '抖音 / Douyin',   channel: 'douyin-cdp',  ready: false, note: 'no agent-reach channel; use Chrome CDP :9222 DOM extractor.' },
   xiaohongshu: { label: '小红书 / RED',  channel: 'xiaohongshu', ready: false, note: 'opencli + login, or xiaohongshu-mcp.' },
+  threads:   { label: 'Threads',        channel: 'browser',     ready: false, note: 'no public read API; browser-scrape logged-in threads.net (best-effort, needs Chrome — not yet wired).' },
+  github:    { label: 'GitHub',         channel: 'rss',         ready: true,  note: 'per-user public activity via github.com/<user>.atom — fetched like RSS, no auth.' },
 };
 
 /* Each source: platform key, rank (within platform), name, handle, url, focus.
@@ -112,6 +116,122 @@ export const SOURCES = [
   { platform: 'douyin',   rank: 11, name: '秋芝2046',        handle: '秋芝2046',      url: 'https://www.douyin.com/user/MS4wLjABAAAAwbbVuf1W2DdgRe0xCa0oxg1ZIHbzuiTzyjq3NcOVgBuu6qIidYlMYqbL3ZFY2swu', focus: '[抖音/B站] PM 出身工具测评标杆。' },
   { platform: 'bilibili', rank: 12, name: '稚晖君 (彭志辉)',  handle: '稚晖君',        url: 'https://space.bilibili.com/20259914',     focus: '[B站] 具身智能/机器人硬核工程；行业方向。' },
 ];
+
+/* ---------- Tiered breadth expansion (2026-08-02) ----------
+ * Beyond the AI core above: topic coverage across tech / politics / finance /
+ * personal-dev / news / movies. `tier:'headline'` = title+link only (no LLM
+ * summary — cheap); promote to 'core' to deep-summarize. Bulk handle-lists are
+ * kept compact and expanded to source objects here (DRY); dedupe by handle
+ * happens at ingest, so overlaps with the AI core above are harmless. */
+function urlFor(platform, handle) {
+  const h = handle.replace(/^@/, '').replace(/^r\//, '');
+  if (platform === 'x') return `https://x.com/${h}`;
+  if (platform === 'youtube') return `https://www.youtube.com/${handle.startsWith('@') ? handle : '@' + h}`;
+  if (platform === 'reddit') return `https://www.reddit.com/r/${h}/`;
+  if (platform === 'threads') return `https://www.threads.com/${handle.startsWith('@') ? handle : '@' + h}`;
+  return '';
+}
+function expand(platform, topic, tier, list) {
+  return list.map((e, i) => {
+    const [handle, name, focus = ''] = Array.isArray(e) ? e : [e, e.replace(/^@/, ''), ''];
+    return { platform, topic, tier, rank: 100 + i, handle, name, url: urlFor(platform, handle), focus };
+  });
+}
+
+SOURCES.push(
+  // ===== AI-lab teams (X) — founders/official = core, researchers = headline =====
+  ...expand('x', 'ai-team', 'core', [
+    ['@sama', 'Sam Altman'], ['@gdb', 'Greg Brockman'], ['@kevinweil', 'Kevin Weil'], ['@OpenAI', 'OpenAI'],
+    ['@jackclarkSF', 'Jack Clark'], ['@AnthropicAI', 'Anthropic'],
+    ['@demishassabis', 'Demis Hassabis'], ['@JeffDean', 'Jeff Dean'], ['@OfficialLoganK', 'Logan Kilpatrick'], ['@GoogleDeepMind', 'Google DeepMind'],
+    ['@elonmusk', 'Elon Musk'], ['@xai', 'xAI'],
+    ['@ylecun', 'Yann LeCun'], ['@alexandr_wang', 'Alexandr Wang'], ['@AIatMeta', 'Meta AI'],
+    ['@arthurmensch', 'Arthur Mensch'], ['@MistralAI', 'Mistral AI'],
+    ['@Kimi_Moonshot', 'Kimi / Moonshot'], ['@deepseek_ai', 'DeepSeek'], ['@JustinLin610', 'Junyang Lin (Qwen)'], ['@Alibaba_Qwen', 'Qwen'], ['@Zai_org', 'Z.ai (Zhipu)'],
+    ['@mntruell', 'Michael Truell (Cursor)'], ['@cursor_ai', 'Cursor'], ['@ilyasut', 'Ilya Sutskever (SSI)'], ['@perplexity_ai', 'Perplexity'],
+  ]),
+  ...expand('x', 'ai-team', 'headline', [
+    ['@polynoamial', 'Noam Brown'], ['@SebastienBubeck', 'Sébastien Bubeck'], ['@aidan_mclau', 'Aidan McLaughlin'], ['@tszzl', 'Roon'], ['@woj_zaremba', 'Wojciech Zaremba'],
+    ['@ch402', 'Chris Olah'], ['@AmandaAskell', 'Amanda Askell'], ['@janleike', 'Jan Leike'], ['@catherineols', 'Catherine Olsson'],
+    ['@OriolVinyalsML', 'Oriol Vinyals'], ['@quocleix', 'Quoc Le'], ['@douglas_eck', 'Douglas Eck'], ['@TheGregYang', 'Greg Yang'],
+    ['@soumithchintala', 'Soumith Chintala'], ['@natfriedman', 'Nat Friedman'], ['@hwchung27', 'Hyung Won Chung'],
+    ['@GuillaumeLample', 'Guillaume Lample'], ['@timlacroix', 'Timothée Lacroix'], ['@dchaplot', 'Devendra Chaplot'],
+    ['@zizhpan', 'Zizheng Pan'], ['@huybery', 'Binyuan Hui'], ['@denisyarats', 'Denis Yarats'], ['@amanrsanger', 'Aman Sanger'],
+  ]),
+
+  // ===== Dev-tool / Claude·Codex community (X) — your posting circle =====
+  ...expand('x', 'devtool', 'core', [
+    ['@ClaudeDevs', 'Claude Developers'], ['@bcherny', 'Boris Cherny'], ['@_catwu', 'Cat Wu'], ['@alexalbert__', 'Alex Albert'],
+    ['@OpenAIDevs', 'OpenAI Developers'], ['@amasad', 'Amjad Masad'], ['@levelsio', 'Pieter Levels'], ['@marc_louvion', 'Marc Lou'],
+    ['@tdinh_me', 'Tony Dinh'], ['@mckaywrigley', 'McKay Wrigley'], ['@rauchg', 'Guillermo Rauch'], ['@theo', 'Theo Browne'],
+  ]),
+
+  // ===== Topic accounts (X) — headline tier =====
+  ...expand('x', 'tech', 'headline', ['@MKBHD', '@benthompson', '@GergelyOrosz', '@dylan522p', '@mingchikuo', '@markgurman', '@IanCutress', '@dnystedt', '@Jukanlosreve', '@firstadopter', '@CaseyNewton', '@reckless', '@stevesi', '@BenBajarin', '@patrickc', '@ID_AA_Carmack', '@cdixon', '@paulg', '@balajis']),
+  ...expand('x', 'politics', 'headline', ['@ianbremmer', '@niubi', '@KaiserKuo', '@HuXijin_GT', '@sstrangio', '@dririshsea', '@anwaribrahim', '@malaysiakini', '@BonnieGlaser', '@michaelxpettis', '@ElbridgeColby', '@tanvi_madan', '@vtchakarova', '@adam_tooze', '@NateSilver538', '@ezraklein', '@mattyglesias', '@Yascha_Mounk', '@Noahpinion', '@PeterZeihan']),
+  ...expand('x', 'finance', 'headline', ['@RayDalio', '@elerianm', '@Nouriel', '@LynAldenContact', '@biancoresearch', '@KobeissiLetter', '@FedGuy12', '@AndreasSteno', '@MacroAlf', '@RaoulGMI', '@cullenroche', '@jessefelder', '@morganhousel', '@TheStalwart', '@tracyalloway', '@conorsen', '@LizAnnSonders', '@charliebilello', '@jasonfurman', '@CathieDWood', '@Brad_Setser', '@robin_j_brooks', '@paulkrugman', '@gilliantett']),
+  ...expand('x', 'persdev', 'headline', ['@naval', '@JamesClear', '@ShaneAParrish', '@RyanHoliday', '@tferriss', '@AdamMGrant', '@IamMarkManson', '@SahilBloom', '@AlexHormozi', '@Codie_Sanchez', '@thejustinwelsh', '@gregisenberg', '@shl', '@david_perell', '@aliabdaal', '@dickiebush', '@Nicolascole77', '@anthilemoon', '@nathanbarry', '@khemaridh']),
+
+  // ===== Threads (browser-scraped over your logged-in Chrome) =====
+  ...expand('threads', 'tech', 'core', [
+    ['@mosseri', 'Adam Mosseri', 'Head of Instagram/Threads — Meta AI + product launches.'],
+    ['@zuck', 'Mark Zuckerberg', 'Meta AI model releases (Muse/Llama), infra strategy.'],
+  ]),
+
+  // ===== YouTube (headline; new channels beyond the AI core above) =====
+  ...expand('youtube', 'ai', 'headline', ['@AIExplained', '@bycloudAI', '@mreflow', '@sentdex', '@lexfridman', '@statquest', '@MachineLearningStreetTalk', '@Computerphile', '@WesRoth', '@aiadvantage', '@engineerprompt', '@1littlecoder']),
+  ...expand('youtube', 'persdev', 'headline', ['@TheDiaryOfACEO', '@ChrisWillx', '@hubermanlab', '@timferriss', '@mattdavella', '@Thomasfrank', '@betterideas', '@ImprovementPill', '@CalNewportMedia', '@melrobbins', '@Struthless']),
+  ...expand('youtube', 'tech-finance', 'headline', ['@mkbhd', '@LinusTechTips', '@Mrwhosetheboss', '@Dave2D', '@PBoyle', '@markets', '@CNBC', '@LexClips', '@BenFelixCSI', '@ThePlainBagel', '@AswathDamodaranonValuation', '@AndreiJikh', '@GrahamStephan', '@TheVerge']),
+
+  // ===== Reddit (headline; new subs beyond the AI core) =====
+  ...expand('reddit', 'finance', 'headline', ['r/investing', 'r/stocks', 'r/Bogleheads', 'r/SecurityAnalysis', 'r/financialindependence']),
+  ...expand('reddit', 'politics', 'headline', ['r/geopolitics', 'r/PoliticalDiscussion', 'r/NeutralPolitics', 'r/foreignpolicy', 'r/CredibleDefense']),
+  ...expand('reddit', 'tech', 'headline', ['r/technology', 'r/programming', 'r/ExperiencedDevs']),
+  ...expand('reddit', 'movies', 'headline', ['r/movies', 'r/TrueFilm', 'r/MovieSuggestions', 'r/flicks', 'r/criterion']),
+  ...expand('reddit', 'world-econ', 'headline', ['r/worldnews', 'r/economics', 'r/AskEconomics', 'r/business']),
+  ...expand('reddit', 'persdev', 'headline', ['r/getdisciplined', 'r/productivity', 'r/selfimprovement', 'r/DecidingToBeBetter', 'r/getmotivated']),
+
+  // ===== News outlets (RSS, headline) — feeds live-tested 2026-08-02 =====
+  { platform: 'rss', topic: 'news-my', tier: 'headline', rank: 200, name: 'Bernama', handle: 'bernama.com', url: 'https://www.bernama.com/en/', feed: 'https://www.bernama.com/en/rssfeed.php', focus: '🇲🇾 national wire.' },
+  { platform: 'rss', topic: 'news-my', tier: 'headline', rank: 201, name: 'Malaysiakini', handle: 'malaysiakini.com', url: 'https://www.malaysiakini.com/', feed: 'https://www.malaysiakini.com/rss/en/news.rss', focus: '🇲🇾 independent politics.' },
+  { platform: 'rss', topic: 'news-my', tier: 'headline', rank: 202, name: 'Free Malaysia Today', handle: 'freemalaysiatoday.com', url: 'https://www.freemalaysiatoday.com/', feed: 'https://cms.freemalaysiatoday.com/feed', focus: '🇲🇾 general news.' },
+  { platform: 'rss', topic: 'news-my', tier: 'headline', rank: 203, name: 'New Straits Times', handle: 'nst.com.my', url: 'https://www.nst.com.my/', feed: 'https://www.nst.com.my/feed', focus: '🇲🇾 (needs browser UA).' },
+  { platform: 'rss', topic: 'news-cn', tier: 'headline', rank: 210, name: 'SCMP', handle: 'scmp.com', url: 'https://www.scmp.com/', feed: 'https://www.scmp.com/rss/91/feed', focus: '🇨🇳 China/HK.' },
+  { platform: 'rss', topic: 'news-cn', tier: 'headline', rank: 211, name: 'Global Times', handle: 'globaltimes.cn', url: 'https://www.globaltimes.cn/', feed: 'https://www.globaltimes.cn/rss/outbrain.xml', focus: '🇨🇳 official view.' },
+  { platform: 'rss', topic: 'news-cn', tier: 'headline', rank: 212, name: 'CGTN World', handle: 'cgtn.com', url: 'https://www.cgtn.com/', feed: 'https://www.cgtn.com/subscribe/rss/section/world.xml', focus: '🇨🇳 state broadcaster.' },
+  { platform: 'rss', topic: 'news-us', tier: 'headline', rank: 220, name: 'NYT HomePage', handle: 'nytimes.com', url: 'https://www.nytimes.com/', feed: 'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml', focus: '🇺🇸 paper of record.' },
+  { platform: 'rss', topic: 'news-us', tier: 'headline', rank: 221, name: 'Washington Post World', handle: 'washingtonpost.com', url: 'https://www.washingtonpost.com/', feed: 'https://feeds.washingtonpost.com/rss/world', focus: '🇺🇸 world desk.' },
+  { platform: 'rss', topic: 'news-us', tier: 'headline', rank: 222, name: 'NPR News', handle: 'npr.org', url: 'https://www.npr.org/', feed: 'https://feeds.npr.org/1001/rss.xml', focus: '🇺🇸 public radio.' },
+  { platform: 'rss', topic: 'news-us', tier: 'headline', rank: 223, name: 'Axios', handle: 'axios.com', url: 'https://www.axios.com/', feed: 'https://api.axios.com/feed/', focus: '🇺🇸 smart brevity.' },
+  { platform: 'rss', topic: 'news-world', tier: 'headline', rank: 230, name: 'BBC World', handle: 'bbc.co.uk', url: 'https://www.bbc.com/news/world', feed: 'https://feeds.bbci.co.uk/news/world/rss.xml', focus: '🌍 wire.' },
+  { platform: 'rss', topic: 'news-world', tier: 'headline', rank: 231, name: 'Al Jazeera', handle: 'aljazeera.com', url: 'https://www.aljazeera.com/', feed: 'https://www.aljazeera.com/xml/rss/all.xml', focus: '🌍 global south lens.' },
+  { platform: 'rss', topic: 'news-world', tier: 'headline', rank: 232, name: 'Guardian World', handle: 'theguardian.com', url: 'https://www.theguardian.com/world', feed: 'https://www.theguardian.com/world/rss', focus: '🌍 world desk.' },
+  { platform: 'rss', topic: 'news-econ', tier: 'headline', rank: 240, name: 'WSJ World', handle: 'wsj.com', url: 'https://www.wsj.com/', feed: 'https://feeds.a.dj.com/rss/RSSWorldNews.xml', focus: '💰 markets (headlines).' },
+  { platform: 'rss', topic: 'news-econ', tier: 'headline', rank: 241, name: 'Bloomberg Markets', handle: 'bloomberg.com', url: 'https://www.bloomberg.com/', feed: 'https://www.bloomberg.com/feeds/markets/news.rss', focus: '💰 markets.' },
+  { platform: 'rss', topic: 'news-econ', tier: 'headline', rank: 242, name: 'CNBC Top', handle: 'cnbc.com', url: 'https://www.cnbc.com/', feed: 'https://www.cnbc.com/id/100003114/device/rss/rss.html', focus: '💰 (needs browser UA).' },
+  { platform: 'rss', topic: 'news-econ', tier: 'headline', rank: 243, name: 'Financial Times', handle: 'ft.com', url: 'https://www.ft.com/', feed: 'https://www.ft.com/rss/home', focus: '💰 (needs browser UA, paywall body).' },
+  { platform: 'rss', topic: 'news-un', tier: 'headline', rank: 250, name: 'UN News', handle: 'news.un.org', url: 'https://news.un.org/', feed: 'https://news.un.org/feed/subscribe/en/news/all/rss.xml', focus: '🇺🇳 UN system.' },
+  { platform: 'rss', topic: 'news-un', tier: 'headline', rank: 251, name: 'WTO News', handle: 'wto.org', url: 'https://www.wto.org/', feed: 'https://www.wto.org/library/rss/latest_news_e.xml', focus: '🇺🇳 trade.' },
+  { platform: 'rss', topic: 'movies', tier: 'headline', rank: 260, name: 'Variety', handle: 'variety.com', url: 'https://variety.com/', feed: 'https://variety.com/feed/', focus: '🎬 industry.' },
+  { platform: 'rss', topic: 'movies', tier: 'headline', rank: 261, name: 'The Hollywood Reporter', handle: 'hollywoodreporter.com', url: 'https://www.hollywoodreporter.com/', feed: 'https://www.hollywoodreporter.com/feed/', focus: '🎬 industry.' },
+  { platform: 'rss', topic: 'movies', tier: 'headline', rank: 262, name: 'Deadline', handle: 'deadline.com', url: 'https://deadline.com/', feed: 'https://deadline.com/feed/', focus: '🎬 breaking.' },
+);
+
+/* ---------- People roster (feed/people.js) → X + GitHub follows ----------
+ * Each roster person becomes an X source (via .x) and/or a GitHub Atom-feed
+ * source (via .gh). All headline tier. Dedupe-by-handle at ingest collapses
+ * overlaps with the curated/topic blocks above. */
+for (const [topic, list] of Object.entries(PEOPLE)) {
+  for (const p of list) {
+    if (p.x) {
+      SOURCES.push({ platform: 'x', topic, tier: 'headline', rank: 300, handle: p.x, name: p.n, url: urlFor('x', p.x), focus: '' });
+    }
+    if (p.gh) {
+      SOURCES.push({ platform: 'github', topic, tier: 'headline', rank: 300, handle: p.gh, name: p.n,
+        url: `https://github.com/${p.gh}`, feed: `https://github.com/${p.gh}.atom`, focus: '' });
+    }
+  }
+}
 
 /* Convenience: the platforms the ingest script can pull with zero extra setup. */
 export const READY_PLATFORMS = Object.entries(PLATFORMS)

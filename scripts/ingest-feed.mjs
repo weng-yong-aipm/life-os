@@ -47,6 +47,11 @@ const which = args.find((a) => !a.startsWith('-')) || 'all';
 const LIMIT = Number((args[args.indexOf('--limit') + 1]) || (which === 'youtube' ? 3 : 6)) || 6;
 const DRY = flag('--dry');
 const NO_TRANSCRIPT = flag('--no-transcript');
+// Daily-cost control: `all` fetches every core source but only 1/ROTATE of the
+// headline long-tail each day (rotated by calendar day), so ~700 sources spread
+// over a week instead of hammering all of them every morning.
+const ROTATE = Number(ENV.FEED_ROTATE || 7);
+const DAY = Math.floor(Date.now() / 86400000);
 
 /* ---------- Supabase REST ---------- */
 const SB = ENV.SUPABASE_URL;
@@ -107,7 +112,10 @@ function pickAttr(block, tag, attr) {
   return m ? m[1] : '';
 }
 async function fetchRss(src, limit) {
-  const res = await fetch(src.feed, { headers: { 'user-agent': 'life-os-feed/1.0' } });
+  const res = await fetch(src.feed, { headers: {
+    'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
+    accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
+  } });
   if (!res.ok) throw new Error(`${res.status}`);
   const xml = await res.text();
   const blocks = xml.split(/<(?:entry|item)[\s>]/i).slice(1).slice(0, limit);
@@ -203,15 +211,58 @@ function fetchOpenCli(platform, src, limit) {
   }).filter((i) => i.title && i.title !== '(untitled)');
 }
 
+/* ---------- Threads (opencli browser bridge over your logged-in Chrome; no public API) ----------
+ * Threads has no read API and no opencli adapter, so we drive the attached Chrome
+ * directly: open the profile, scroll to load posts, and scrape permalink+text+time. */
+const THREADS_SESSION = 'feed';
+const THREADS_SCRAPE = "(function(){var seen={};var out=[];var links=document.querySelectorAll('a[href*=\"/post/\"]');for(var i=0;i<links.length;i++){var a=links[i];var m=a.href.match(/\\/post\\/([A-Za-z0-9_-]+)/);if(!m||seen[m[1]])continue;seen[m[1]]=1;var box=a.closest('[data-pressable-container]')||a.parentElement;var text=((box&&box.innerText)||'').replace(/\\s+/g,' ').trim();var t=box&&box.querySelector('time');var dt=(t&&t.getAttribute('datetime'))||null;out.push({id:m[1],url:a.href.split('?')[0],date:dt,text:text.slice(0,600)});}return JSON.stringify(out);})()";
+
+function ocBrowser(cmd) {
+  return execFileSync('opencli', ['browser', THREADS_SESSION, ...cmd],
+    { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] });
+}
+function threadsLoggedIn() {
+  if (!SOURCES.some((s) => s.platform === 'threads')) return false;
+  try {
+    ocBrowser(['open', 'https://www.threads.com/', '--window', 'background']);
+    const out = ocBrowser(['eval', "(function(){return JSON.stringify({login:!!document.querySelector('a[href*=\"/login\"]'),composer:/What.s new/.test(document.body.innerText||'')});})()"]);
+    return /"composer":true/.test(out) || !/"login":true/.test(out);
+  } catch { return false; }
+}
+function fetchThreads(src, limit) {
+  const handle = src.handle.replace(/^@/, '');
+  ocBrowser(['open', `https://www.threads.com/@${handle}`, '--window', 'background']);
+  for (let i = 0; i < Math.min(5, Math.ceil(limit / 2) + 1); i++) {
+    try { ocBrowser(['scroll', 'down']); } catch { /* keep what loaded */ }
+  }
+  let arr;
+  try { arr = JSON.parse(ocBrowser(['eval', THREADS_SCRAPE]).trim()); } catch { arr = []; }
+  if (!Array.isArray(arr)) arr = [];
+  // Profile pages also surface reposts — keep only this author's own posts.
+  return arr.filter((it) => it.url.includes(`/@${handle}/`)).slice(0, limit).map((it) => {
+    // Strip the leading "handle <date>" header (absolute MM/DD/YY or relative 4d/2h/30m).
+    const body = (it.text || '').replace(/^\S+\s+(?:\d{1,2}\/\d{1,2}\/\d{2,4}|\d+[smhdw])\s+/, '').trim();
+    return {
+      externalId: it.id,
+      url: it.url,
+      title: (body || '(untitled)').slice(0, 200),
+      publishedAt: normDate(it.date),
+      content: body || it.text || '',
+      durationSec: null,
+    };
+  }).filter((i) => i.title && i.title !== '(untitled)');
+}
+
 /* ---------- main ---------- */
 function targetPlatforms() {
   if (which === 'all') {
     const live = OPENCLI_PLATFORMS.filter((p) => opencliLoggedIn(p));
-    if (live.length) console.log(`OpenCLI signed in: ${live.join(', ')}`);
-    return ['rss', 'youtube', ...live];
+    if (threadsLoggedIn()) live.push('threads');
+    if (live.length) console.log(`Logged in via browser: ${live.join(', ')}`);
+    return ['rss', 'github', 'youtube', ...live];
   }
-  if (which === 'rss' || which === 'youtube' || OPENCLI_PLATFORMS.includes(which)) return [which];
-  throw new Error(`Platform "${which}" not supported. Try: rss, youtube, ${OPENCLI_PLATFORMS.join(', ')}, or all.`);
+  if (which === 'rss' || which === 'github' || which === 'youtube' || which === 'threads' || OPENCLI_PLATFORMS.includes(which)) return [which];
+  throw new Error(`Platform "${which}" not supported. Try: rss, github, youtube, threads, ${OPENCLI_PLATFORMS.join(', ')}, or all.`);
 }
 
 async function run() {
@@ -223,22 +274,40 @@ async function run() {
 
   let staged = [];
   for (const platform of platforms) {
-    const srcs = SOURCES.filter((s) => s.platform === platform && (platform !== 'rss' || s.feed));
+    // Dedupe by handle — the same account can appear under several topic lists.
+    const seen = new Set();
+    let srcs = SOURCES.filter((s) => s.platform === platform && (!['rss', 'github'].includes(platform) || s.feed))
+      .filter((s) => { const k = s.handle || s.feed; if (seen.has(k)) return false; seen.add(k); return true; });
+    // In `all` (the scheduled run), always fetch core sources but only today's
+    // rotating slice of the headline long-tail. Explicit single-platform runs
+    // (e.g. `ingest-feed.mjs x`) fetch everything.
+    if (which === 'all' && ROTATE > 1) {
+      const core = srcs.filter((s) => (s.tier || 'core') !== 'headline');
+      const tail = srcs.filter((s) => (s.tier || 'core') === 'headline').filter((_, i) => i % ROTATE === DAY % ROTATE);
+      srcs = [...core, ...tail];
+    }
+    if (srcs.length) console.log(`· ${platform}: ${srcs.length} source(s)${which === 'all' ? ` [rotate ${DAY % ROTATE + 1}/${ROTATE}]` : ''}`);
     for (const src of srcs) {
       try {
-        const raw = platform === 'rss' ? await fetchRss(src, LIMIT)
+        const raw = platform === 'rss' || platform === 'github' ? await fetchRss(src, LIMIT)
           : platform === 'youtube' ? ytList(src.url, LIMIT).map((v) => ({ ...v, content: ytTranscript(v.url) }))
+          : platform === 'threads' ? fetchThreads(src, LIMIT)
           : fetchOpenCli(platform, src, LIMIT);
+        // tier: 'core' → deep Claude summary; 'headline' → title+link only (no LLM, cheap).
+        const tier = src.tier || 'core';
         for (const it of raw) {
           const content = it.content || it.title;
-          const { summary, topics } = DRY && !ENV.ANTHROPIC_API_KEY
-            ? { summary: '(dry, no summary)', topics: [] }
-            : await summarize({ title: it.title, platform, sourceName: src.name, content });
+          const { summary, topics } = tier === 'headline'
+            ? { summary: '', topics: [] }
+            : DRY && !ENV.ANTHROPIC_API_KEY
+              ? { summary: '(dry, no summary)', topics: [] }
+              : await summarize({ title: it.title, platform, sourceName: src.name, content });
+          const allTopics = [...topics, src.topic].filter(Boolean);
           staged.push({
             user_id: userId, platform, source_handle: src.handle, source_name: src.name,
             external_id: `${platform}:${it.externalId}`, url: it.url, title: it.title,
             published_at: it.publishedAt || null, duration_sec: it.durationSec || null,
-            summary, topics: topics.length ? topics : null, status: 'new',
+            summary, topics: allTopics.length ? allTopics : null, status: 'new',
           });
           console.log(`  ✓ ${src.name}: ${it.title.slice(0, 70)}`);
         }
