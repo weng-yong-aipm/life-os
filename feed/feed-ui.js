@@ -142,14 +142,14 @@ function renderBriefings() {
 }
 
 function escapeHtml(s) {
-  return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 /* Tiny, safe markdown → HTML (headings, bold, links, lists, hr, paragraphs). */
 function mdToHtml(md) {
   const inline = (t) => t
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)"'<>]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
   const out = [];
   let inList = false;
   const closeList = () => { if (inList) { out.push('</ul>'); inList = false; } };
