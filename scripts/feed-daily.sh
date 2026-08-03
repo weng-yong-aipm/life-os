@@ -8,5 +8,5 @@ NODE=/usr/local/bin/node
 
 echo "=== feed-daily $(date) ==="
 "$NODE" "$HOME/second-brain/scripts/ingest-follow.mjs" all || echo "ingest step failed (continuing to report)"
-"$NODE" scripts/daily-report.mjs || echo "report step failed"
+"$NODE" "$HOME/second-brain/scripts/daily-report.mjs" || echo "report step failed"
 echo "=== feed-daily done $(date) ==="
