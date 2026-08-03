@@ -5,3 +5,12 @@ node_modules/
 .env.local
 .vercel/
 .playwright-mcp/
+
+# Private plane — these were purged from history (follow list, synthesis engine,
+# douyin ledger mapper) and moved to second-brain. Never re-commit to this PUBLIC repo.
+feed/people.js
+feed/synthesis.js
+feed/synthesis.test.js
+scripts/synthesize.mjs
+learning/douyin-import.js
+learning/douyin-import.test.js
