@@ -18,6 +18,7 @@ function initTabs() {
     btn.classList.add('active');
     document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
     if (btn.dataset.tab === 'digest') renderDigest();
+    if (btn.dataset.tab === 'briefings') renderBriefings();
   }));
 }
 
@@ -30,7 +31,9 @@ const PLATFORM_ICON = { youtube: '▶', rss: '✉', bilibili: 'B', reddit: '👽
 
 function renderList() {
   const filter = document.getElementById('feed-filter').value;
-  const rows = filter ? cache.filter((x) => x.status === filter) : cache;
+  // Briefings (synthesized overviews/reports) live in their own tab, not the feed.
+  const feedItems = cache.filter((x) => x.platform !== 'overview' && x.platform !== 'report');
+  const rows = filter ? feedItems.filter((x) => x.status === filter) : feedItems;
   const list = document.getElementById('feed-list');
   list.innerHTML = '';
   if (!rows.length) {
@@ -109,4 +112,60 @@ async function copyMarkdown() {
   const md = document.getElementById('digest-md').value;
   try { await navigator.clipboard.writeText(md); alert('Digest copied.'); }
   catch { document.getElementById('digest-md').select(); }
+}
+
+/* ---------------- Briefings tab (synthesized overviews + daily reports) ---------------- */
+
+function renderBriefings() {
+  const items = cache
+    .filter((x) => x.platform === 'overview' || x.platform === 'report')
+    .sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || ''));
+  const box = document.getElementById('briefings-list');
+  box.innerHTML = '';
+  if (!items.length) {
+    box.innerHTML = '<p class="hint">No briefings yet — run <code>node scripts/daily-report.mjs</code> '
+      + 'or <code>node scripts/synthesize.mjs &lt;topic&gt;</code> on your Mac.</p>';
+    return;
+  }
+  for (const it of items) {
+    const d = document.createElement('details');
+    d.className = 'briefing';
+    const s = document.createElement('summary');
+    s.textContent = `${it.platform === 'report' ? '📰' : '🧭'} ${it.title}`;
+    const body = document.createElement('div');
+    body.className = 'briefing-body';
+    body.innerHTML = mdToHtml(it.summary || '');
+    d.append(s, body);
+    box.appendChild(d);
+  }
+  box.firstElementChild.open = true; // newest expanded
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+/* Tiny, safe markdown → HTML (headings, bold, links, lists, hr, paragraphs). */
+function mdToHtml(md) {
+  const inline = (t) => t
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  const out = [];
+  let inList = false;
+  const closeList = () => { if (inList) { out.push('</ul>'); inList = false; } };
+  for (const raw of escapeHtml(md).split('\n')) {
+    const line = raw.trimEnd();
+    if (/^#{1,6}\s/.test(line)) {
+      closeList();
+      const lvl = line.match(/^#+/)[0].length;
+      out.push(`<h${lvl}>${inline(line.replace(/^#+\s/, ''))}</h${lvl}>`);
+    } else if (/^(-|\d+\.)\s/.test(line)) {
+      if (!inList) { out.push('<ul>'); inList = true; }
+      out.push(`<li>${inline(line.replace(/^(-|\d+\.)\s/, ''))}</li>`);
+    } else if (/^---+$/.test(line)) { closeList(); out.push('<hr>'); }
+    else if (line === '') { closeList(); }
+    else { closeList(); out.push(`<p>${inline(line)}</p>`); }
+  }
+  closeList();
+  return out.join('\n');
 }

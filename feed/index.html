@@ -8,6 +8,14 @@
 <link rel="stylesheet" href="../shell.css?v=1" />
 <script type="module" src="../shell.js"></script>
 <link rel="manifest" href="../manifest.webmanifest" />
+<style>
+  .briefing { border: 1px solid var(--border, #ddd); border-radius: 8px; margin: 8px 0; padding: 4px 12px; }
+  .briefing > summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+  .briefing-body { max-width: 70ch; line-height: 1.5; }
+  .briefing-body h1 { font-size: 1.3rem; } .briefing-body h2 { font-size: 1.1rem; margin: 1em 0 .3em; }
+  .briefing-body hr { border: none; border-top: 1px solid var(--border, #ddd); margin: 1em 0; }
+  .briefing-body a { word-break: break-word; }
+</style>
 </head>
 <body>
 <header>
@@ -17,12 +25,13 @@
 
 <nav class="tabs">
   <button class="tab-btn active" data-tab="feed">Feed</button>
+  <button class="tab-btn" data-tab="briefings">Briefings</button>
   <button class="tab-btn" data-tab="digest">Weekly digest</button>
 </nav>
 
 <section id="tab-feed" class="tab-panel active">
   <p class="hint">Auto-pulled from your top-AI-creator follow-list and summarized.
-    Run <code>node scripts/ingest-feed.mjs</code> on your Mac to fetch new items, then triage:
+    Run <code>node ~/second-brain/scripts/ingest-follow.mjs</code> on your Mac to fetch new items, then triage:
     <strong>Apply</strong>/<strong>Consider</strong> copy the item into your Learning log; <strong>Reject</strong> hides it.</p>
   <label>Filter <select id="feed-filter">
     <option value="new" selected>Unreviewed</option>
@@ -33,6 +42,13 @@
   </select></label>
   <div id="feed-status" class="hint"></div>
   <ul id="feed-list" class="feed-list"></ul>
+</section>
+
+<section id="tab-briefings" class="tab-panel">
+  <p class="hint">AI-synthesized, citation-backed overviews (per topic) and daily attention reports.
+    Generate on your Mac: <code>node scripts/synthesize.mjs &lt;topic&gt;</code> or <code>node scripts/daily-report.mjs</code>
+    (the morning job writes one report daily).</p>
+  <div id="briefings-list"></div>
 </section>
 
 <section id="tab-digest" class="tab-panel">
