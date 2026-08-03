@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>life-os — Capture</title>
+<link rel="stylesheet" href="../ui.css?v=7" />
+<link rel="stylesheet" href="../shell.css?v=1" />
+<script type="module" src="../shell.js"></script>
+<link rel="manifest" href="../manifest.webmanifest" />
+<style>
+  .msg { min-height: 1.4em; font-size: .9rem; }
+  .msg.ok { color: #14704a; }
+  .msg.err { color: #a8391b; }
+  .hint { font-size: .85rem; opacity: .7; }
+</style>
+</head>
+<body>
+<header>
+  <a href="../index.html">&larr; life-os</a>
+  <h1>Capture</h1>
+</header>
+
+<section class="tab-panel active">
+  <div class="cols">
+    <div class="col">
+      <h2>Send a link to the Desk</h2>
+      <form id="cap-form">
+        <label>Link
+          <input type="text" id="cap-url" placeholder="paste anything — the URL gets pulled out"
+                 autocomplete="off" autocapitalize="off" spellcheck="false" required />
+        </label>
+        <label>Note <textarea id="cap-note" rows="2" placeholder="why you saved it (optional)"></textarea></label>
+        <p id="cap-msg" class="msg"></p>
+        <button type="submit" id="cap-send">Queue it</button>
+      </form>
+    </div>
+    <div class="col">
+      <h2>How this works</h2>
+      <p class="hint">
+        This page only ever <strong>writes</strong>. It queues the link and nothing more — it
+        cannot read the queue back, and neither can anything else signed in as you. The Desk
+        drains the queue outbound on its own machine, fetches the content, summarises it, and
+        files it into the knowledge inbox.
+      </p>
+      <p class="hint">
+        That one-way shape is the point: the Desk keeps binding to <code>127.0.0.1</code> and gains
+        no exposure from this page existing.
+      </p>
+      <p class="hint">
+        Tracking parameters (<code>utm_*</code>, <code>fbclid</code>, <code>igshid</code>…) are
+        stripped before the link is stored.
+      </p>
+    </div>
+  </div>
+</section>
+
+<script type="module" src="./capture-ui.js"></script>
+</body>
+</html>
