@@ -1,4 +1,5 @@
 import { getClient, cloudEnabled } from '../db.js';
+import { demoMode, fixtures } from '../demo.js';
 
 function toRow(e) {
   return {
@@ -26,6 +27,7 @@ export const ExpensesRepo = {
   },
 
   async list() {
+    if (demoMode) return fixtures.expenses;
     const c = await getClient();
     if (!c) return [];
     const { data, error } = await c.from('expenses').select('*').order('spent_at', { ascending: false });

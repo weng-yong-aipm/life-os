@@ -1,4 +1,5 @@
 import { getClient, cloudEnabled } from '../db.js';
+import { demoMode, fixtures } from '../demo.js';
 
 function toRow(s) {
   return {
@@ -50,6 +51,7 @@ export const LearningRepo = {
   },
 
   async list() {
+    if (demoMode) return fixtures.learning;
     const c = await getClient();
     if (!c) return [];
     const { data, error } = await c

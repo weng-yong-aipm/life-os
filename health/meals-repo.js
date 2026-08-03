@@ -1,4 +1,5 @@
 import { getClient } from '../db.js';
+import { demoMode, fixtures } from '../demo.js';
 
 function localId() {
   return globalThis.crypto?.randomUUID?.() || 'm_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -45,6 +46,7 @@ export const MealsRepo = {
   },
 
   async listForDay(date) {
+    if (demoMode) return fixtures.meals.filter((m) => m.eatenOn === date);
     const c = await getClient();
     if (!c) return [];
     const { data, error } = await c.from('meals').select('*').eq('eaten_at', date).order('created_at', { ascending: true });

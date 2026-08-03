@@ -1,3 +1,4 @@
+import { demoBanner } from './demo.js';
 /* W1 — back-office shell. Injects a persistent module sidebar on every page and
  * highlights the active one. No markup edits per page beyond linking this file.
  * DOM built with createElement/textContent (XSS-safe, matches the repo). */
@@ -44,3 +45,5 @@ for (const m of MODULES) {
 
 document.documentElement.classList.add('has-shell');
 document.body.prepend(aside);
+
+demoBanner();

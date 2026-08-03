@@ -75,3 +75,13 @@
   .app-sidebar .brand { display: none; }
   .app-sidebar a.nav-item { border-left: none; white-space: nowrap; flex: 0 0 auto; }
 }
+
+/* Demo-mode banner — only rendered when ?demo is present. */
+#demo-banner {
+  background: #1d4ed8;
+  color: #fff;
+  font-size: .85rem;
+  padding: .5rem .9rem;
+  text-align: center;
+}
+#demo-banner a { color: #fff; text-decoration: underline; margin-left: .35rem; }

@@ -1,4 +1,5 @@
 import { getClient } from '../db.js';
+import { demoMode, fixtures } from '../demo.js';
 
 function toRow(w) {
   return {
@@ -30,6 +31,7 @@ export const WorkoutsRepo = {
   },
 
   async listForWeek(startDate) {
+    if (demoMode) return fixtures.workouts;
     const c = await getClient();
     if (!c) return [];
     const end = addDays(startDate, 7);

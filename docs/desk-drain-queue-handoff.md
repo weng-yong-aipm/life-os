@@ -45,16 +45,17 @@ Roughly 50 lines, per spec item 17. Outbound only.
 
 1. `SELECT id, url, note FROM capture_queue WHERE drained_at IS NULL ORDER BY created_at` via
    PostgREST with the **service-role key** (RLS is bypassed; that is the intended path).
-2. For each row `POST http://127.0.0.1:4173/api/ingest` with `{ url, note }`.
+2. For each row `POST <desk-local-url>/api/ingest` with `{ url, note }`.
 3. On success `PATCH capture_queue?id=eq.<id>` setting `drained_at = now()`.
 4. On failure leave `drained_at` null so the next cycle retries — but count consecutive
    failures per id and stop retrying a URL that has failed, say, 5 times, or one dead link
    blocks the queue forever.
 5. Purge sweep: `DELETE WHERE drained_at < now() - interval '30 days'`.
 
-**The Desk keeps binding `127.0.0.1`.** Nothing here opens a port. That is why its ~51
-unauthenticated routes — including `/api/credentials/reveal` and `/api/totp/code` — stay
-unreachable from the LAN, and the done-check in the spec explicitly re-tests that.
+**The Desk keeps binding the loopback interface.** Nothing here opens a port. That is why its
+unauthenticated local routes stay unreachable from the LAN, and the done-check in the spec
+explicitly re-tests that. (Which routes those are is deliberately not listed here — this repo
+is public.)
 
 ### Lane hint is already computed
 
@@ -75,5 +76,5 @@ The Desk should read its own copy rather than reaching into the public repo's en
 ## Done-check (from the spec, unchanged)
 
 Paste a 抖音 link on the phone → within one cycle a capture file and a `knowledge_items` row
-exist locally and the queue row is stamped; `curl` from another LAN machine to `:4173` still
-refuses.
+exist locally and the queue row is stamped; `curl` from another LAN machine to the Desk port
+still refuses.

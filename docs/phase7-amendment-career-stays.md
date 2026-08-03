@@ -38,11 +38,13 @@ written against the empty-table state.
 frank self-assessment, so the row content matters:
 
 - Progress numbers and competency names are fine to be public.
-- The `note` field currently carries assessment reasoning that names internal file paths
-  (`routes/event.js`, `kb.js`) and internal counts. Nothing employer-confidential and no
-  credentials, but **before life-os is used as a portfolio artifact**, review the notes —
-  a public repo that doubles as job-search evidence should not casually list the internals of
-  an employer's system.
+- The `note` field carries assessment reasoning that cites specific files and counts from
+  **work systems**. Those rows live in Supabase under RLS and are not in this repo — but two
+  rules follow from that. **(1)** Demo mode must render fixtures, never real rows, or the
+  notes become public the moment the demo URL is shared. **(2)** Nothing in this repo's docs
+  should quote them; this repo is public and doubles as job-search evidence, and a portfolio
+  artifact that lists an employer's internals reads badly regardless of how harmless the
+  detail is.
 
 Seed rows are tagged and reversible:
 

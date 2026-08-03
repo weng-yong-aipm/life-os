@@ -9,7 +9,18 @@ I built it to solve my own problem, and to keep a single, focused codebase where
 could practice the full path from schema → row-level security → edge functions →
 tested UI, without a framework hiding the moving parts.
 
-**Live:** https://yongsnsoft2025-a11y.github.io/life-os/ · **Stack:** vanilla JS PWA · Supabase (Postgres + RLS + Storage + Edge Functions/Deno) · Claude vision · Node test runner
+### ▶ [Open the live demo](https://yongsnsoft2025-a11y.github.io/life-os/?demo=1) — no sign-up, no credentials
+
+The `?demo=1` flag renders invented fixture data. It is safe by construction rather
+than by care: in demo mode `getClient()` returns `null`, so the Supabase client is
+never built and no real row can be fetched. Writes fail on the null client, which
+makes the demo read-only for free.
+
+| Home | Goals & Certs | Capture |
+| --- | --- | --- |
+| ![Home](docs/img/demo-home.png) | ![Goals](docs/img/demo-career.png) | ![Capture](docs/img/demo-capture.png) |
+
+**Stack:** vanilla JS PWA · Supabase (Postgres + RLS + Storage + Edge Functions/Deno) · Claude vision · Node test runner
 
 ## What it demonstrates
 
@@ -39,7 +50,22 @@ tested UI, without a framework hiding the moving parts.
 | **Health** | Meal logging (photo estimate or offline food search + portion math) and workout tracking with MET-based calorie burn |
 | **Learning** | Logs learning sessions (抖音/IG → project → applied/rejected) with a weekly ISO-week review |
 | **Goals & Certs** | An FDE/AI-PM career tracker: roles, income targets, certs, and skills with progress bars |
+| **Capture** | Queue a link from your phone for the local knowledge pipeline to fetch. Insert-only by design — see below |
 | Invest | *planned* |
+
+### Capture: a write-only queue
+
+The Capture module exists to let a phone hand a URL to a machine that is **not**
+reachable from the internet. `capture_queue` has an insert policy and nothing
+else — no select, update, or delete policy for signed-in users — so the page can
+add to the queue and can never read it back. A local worker drains it outbound
+with the service-role key.
+
+That asymmetry is the point: a stolen session can put junk in the queue and cannot
+learn anything from it, and the machine doing the fetching never opens a port.
+Verified against the live database with a row present — service-role reads it,
+`anon` reads zero. See
+[`supabase/migrations/20260803150000_add_capture_queue.sql`](supabase/migrations/20260803150000_add_capture_queue.sql).
 
 ## Setup
 

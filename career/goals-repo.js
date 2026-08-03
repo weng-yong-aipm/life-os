@@ -1,4 +1,5 @@
 import { getClient, cloudEnabled } from '../db.js';
+import { demoMode, fixtures } from '../demo.js';
 import { clampProgress } from './goals.js';
 
 function toRow(g) {
@@ -48,6 +49,7 @@ export const GoalsRepo = {
   },
 
   async list() {
+    if (demoMode) return fixtures.goals.map(toRow);
     const c = await getClient();
     if (!c) return [];
     const { data, error } = await c

@@ -1,4 +1,5 @@
 import { Auth, cloudEnabled } from './auth.js';
+import { demoMode } from './demo.js';
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./service-worker.js');
@@ -9,6 +10,15 @@ const loginBox = document.getElementById('login-box');
 const signoutBtn = document.getElementById('signout-btn');
 
 async function refreshAuthUI() {
+  /* In demo mode the landing page is the product, not a gate. Signing in is
+   * impossible anyway — getClient() returns null — so showing the form would
+   * only be a dead end for whoever opened the link. */
+  if (demoMode) {
+    statusEl.textContent = 'demo';
+    loginBox.hidden = true;
+    signoutBtn.hidden = true;
+    return;
+  }
   if (!cloudEnabled) {
     statusEl.textContent = 'local mode (no Supabase config yet)';
     loginBox.hidden = true;
