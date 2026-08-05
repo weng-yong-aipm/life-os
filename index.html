@@ -38,7 +38,41 @@
   </form>
 </div>
 
-<nav class="hub-grid">
+<!-- Shown right after a password/Google sign-in when a verified TOTP factor
+     exists but this session hasn't stepped up to it yet. This is UX only —
+     the real enforcement is in the database's RLS policies, so even a click
+     straight to a module page without finishing this box returns no data. -->
+<div id="mfa-challenge-box" hidden>
+  <p>Enter the 6-digit code from your authenticator app.</p>
+  <form id="mfa-challenge-form">
+    <label>Code <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" id="mfa-challenge-code" autocomplete="one-time-code" required /></label>
+    <button type="submit">Verify</button>
+    <button type="button" id="mfa-challenge-cancel">Sign out instead</button>
+  </form>
+  <p id="mfa-challenge-error" class="mfa-error" hidden></p>
+</div>
+
+<!-- Signed-in, fully authenticated (or no factor enrolled yet, in which
+     case no step-up was ever required). -->
+<div id="mfa-box" hidden>
+  <div id="mfa-status"></div>
+  <button type="button" id="mfa-enable-btn" hidden>Enable two-factor authentication</button>
+  <button type="button" id="mfa-disable-btn" hidden>Disable two-factor</button>
+
+  <div id="mfa-enroll-box" hidden>
+    <p>Scan this with your authenticator app, or enter the code manually:</p>
+    <img id="mfa-qr" alt="Two-factor authentication QR code" />
+    <p class="mfa-secret" id="mfa-secret"></p>
+    <form id="mfa-enroll-form">
+      <label>Enter the 6-digit code to confirm <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" id="mfa-enroll-code" autocomplete="one-time-code" required /></label>
+      <button type="submit">Confirm</button>
+      <button type="button" id="mfa-enroll-cancel">Cancel</button>
+    </form>
+    <p id="mfa-enroll-error" class="mfa-error" hidden></p>
+  </div>
+</div>
+
+<nav class="hub-grid" id="hub-grid">
   <a class="hub-card" href="./finance/index.html">
     <span class="ico">🧾</span>
     <span><span class="name">Finance</span><span class="desc">Receipts, expenses & OT pay</span></span>

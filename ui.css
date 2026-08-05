@@ -252,6 +252,30 @@ header #auth-status {
   content: ''; flex: 1; height: 1px; background: var(--line);
 }
 
+#mfa-challenge-box, #mfa-box {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 1.25rem;
+  box-shadow: var(--shadow);
+  margin: 0 auto 1.5rem;
+  max-width: 420px;
+}
+#mfa-challenge-box form, #mfa-enroll-form {
+  padding: 0; border: none; box-shadow: none; background: none; margin: .75rem 0 0;
+}
+#mfa-challenge-code, #mfa-enroll-code {
+  font-family: var(--mono); letter-spacing: .3em; font-size: 1.1rem; text-align: center;
+}
+.mfa-error { color: var(--over); font-size: .85rem; margin-top: .5rem; }
+.mfa-secret {
+  font-family: var(--mono); font-size: .8rem; background: var(--surface-2);
+  padding: .5rem .75rem; border-radius: var(--radius-sm); word-break: break-all;
+  user-select: all;
+}
+#mfa-qr { display: block; margin: .75rem auto; max-width: 200px; border-radius: var(--radius-sm); }
+#mfa-status { font-size: .9rem; color: var(--muted); margin-bottom: .5rem; }
+
 /* ---------- tabs (segmented control) ---------- */
 
 .tabs {
