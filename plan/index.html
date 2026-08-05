@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>life-os — Plan</title>
+<link rel="stylesheet" href="../ui.css?v=7" />
+<link rel="stylesheet" href="../shell.css?v=1" />
+<link rel="stylesheet" href="plan.css?v=1" />
+<script type="module" src="../shell.js"></script>
+<link rel="manifest" href="../manifest.webmanifest" />
+</head>
+<body>
+<header>
+  <a href="../index.html">&larr; life-os</a>
+  <h1>Plan</h1>
+</header>
+
+<section class="tab-panel active">
+  <p>The 13-week execution plan, 2026-08-04 → 2026-11-02. One gate per week — a condition
+     someone else could check, not a feeling. Ticks are stored in this browser only.</p>
+
+  <div id="plan-overview"></div>
+
+  <div class="plan-controls">
+    <label for="plan-filter">Show</label>
+    <select id="plan-filter">
+      <option value="current">This week</option>
+      <option value="open">Weeks with open tasks</option>
+      <option value="all">All 13 weeks</option>
+    </select>
+    <button type="button" id="plan-reset" class="link-btn">Reset ticks</button>
+  </div>
+
+  <div id="plan-weeks"></div>
+
+  <h2>What must be true on 2026-11-02</h2>
+  <p class="hint">Deliberately not "get an offer" — search-to-offer latency is longer than
+     90 days, so an offer is not a gate this plan controls.</p>
+  <ul id="plan-gates"></ul>
+</section>
+
+<script type="module" src="plan-ui.js"></script>
+</body>
+</html>

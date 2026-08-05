@@ -1,0 +1,30 @@
+.plan-headline { font-weight: 600; margin: .25rem 0; }
+.plan-next { margin: .25rem 0; }
+.plan-warn {
+  background: #fde68a55; border-left: 3px solid #f59e0b;
+  padding: .6rem .8rem; border-radius: 4px; margin: .75rem 0;
+}
+.plan-controls { display: flex; gap: .75rem; align-items: center; margin: 1rem 0; }
+.plan-week {
+  border: 1px solid #8883; border-radius: 6px;
+  padding: .75rem 1rem; margin: .75rem 0;
+}
+.plan-week.is-current { border-color: #2563eb; border-width: 2px; }
+.plan-week.is-done { opacity: .6; }
+.plan-week-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
+.plan-week-head h3 { margin: 0; font-size: 1rem; }
+.plan-dates { font-size: .8rem; color: #777; white-space: nowrap; }
+.plan-gate { font-size: .88rem; color: #666; margin: .4rem 0 .6rem; }
+.plan-tasks { list-style: none; padding: 0; margin: 0; }
+.plan-task label { display: flex; gap: .5rem; align-items: baseline; padding: .2rem 0; cursor: pointer; }
+.plan-owner {
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+  padding: .1rem .35rem; border-radius: 3px; white-space: nowrap;
+}
+.owner-me .plan-owner { background: #2563eb22; color: #2563eb; }
+.owner-build .plan-owner { background: #8881; color: #777; }
+.plan-task input:checked ~ .plan-text { text-decoration: line-through; opacity: .55; }
+.plan-overdue { margin: .75rem 0; font-size: .9rem; }
+@media (prefers-color-scheme: dark) {
+  .plan-gate, .plan-dates { color: #999; }
+}
