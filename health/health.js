@@ -2,8 +2,9 @@ import { MealsRepo } from './meals-repo.js';
 import { WorkoutsRepo } from './workouts-repo.js';
 import { portionScale, dailyTotals, compareToTarget } from './nutrition.js';
 import { estimateBurn } from './calories-burned.js';
+import { localDateStr } from '../shared/local-date.js';
 
-const todayStr = () => new Date().toISOString().slice(0, 10);
+const todayStr = () => localDateStr();
 let foods = [];
 let exercises = [];
 
@@ -159,7 +160,7 @@ function weekStart() {
   const d = new Date();
   const day = (d.getDay() + 6) % 7; // Monday = 0
   d.setDate(d.getDate() - day);
-  return d.toISOString().slice(0, 10);
+  return localDateStr(d);
 }
 
 async function refreshWeek() {
