@@ -1,5 +1,5 @@
 import { GoalsRepo } from './goals-repo.js';
-import { summarize, FDE_STARTER, MILESTONE_TRACK, LEARNING_TRACK, AI_PM_RUBRIC, STATUSES } from './goals.js';
+import { summarize, FDE_STARTER, MILESTONE_TRACK, LEARNING_TRACK, AI_PM_RUBRIC, NINETY_DAY_TRACK, STATUSES } from './goals.js';
 
 let cache = [];
 
@@ -8,6 +8,7 @@ document.getElementById('goal-seed').addEventListener('click', () => onSeed(FDE_
 document.getElementById('goal-seed-ladder').addEventListener('click', () => onSeed(MILESTONE_TRACK, 'career ladder'));
 document.getElementById('goal-seed-learning').addEventListener('click', () => onSeed(LEARNING_TRACK, 'learning track'));
 document.getElementById('goal-seed-pmrubric').addEventListener('click', () => onSeed(AI_PM_RUBRIC, 'AI-PM rubric'));
+document.getElementById('goal-seed-90day').addEventListener('click', () => onSeed(NINETY_DAY_TRACK, '90-day track'));
 document.getElementById('goal-filter').addEventListener('change', render);
 refresh().catch(() => {});
 

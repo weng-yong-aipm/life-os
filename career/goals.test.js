@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { summarize, clampProgress, FDE_STARTER, MILESTONE_TRACK, LEARNING_TRACK, AI_PM_RUBRIC, CATEGORIES, STATUSES } from './goals.js';
+import { summarize, clampProgress, FDE_STARTER, MILESTONE_TRACK, LEARNING_TRACK, AI_PM_RUBRIC, NINETY_DAY_TRACK, CATEGORIES, STATUSES } from './goals.js';
 
 test('all seed sets are well-formed with valid categories/statuses', () => {
   for (const [name, set] of [['FDE_STARTER', FDE_STARTER], ['MILESTONE_TRACK', MILESTONE_TRACK], ['LEARNING_TRACK', LEARNING_TRACK], ['AI_PM_RUBRIC', AI_PM_RUBRIC]]) {
@@ -64,6 +64,37 @@ test('FDE_STARTER is well-formed', () => {
   assert.match(titles, /RAG/);
   assert.match(titles, /PMP/);
   assert.match(titles, /\$20k/);
+});
+
+test('NINETY_DAY_TRACK has one row per week for 13 weeks', () => {
+  assert.equal(NINETY_DAY_TRACK.length, 13);
+  const dates = NINETY_DAY_TRACK.map((g) => g.targetDate);
+  assert.equal(new Set(dates).size, 13, 'duplicate target dates');
+  assert.equal(dates[0], '2026-08-10');
+  assert.equal(dates[12], '2026-11-02');
+  // dates must be strictly increasing, exactly 7 days apart
+  for (let i = 1; i < dates.length; i += 1) {
+    const gap = (Date.parse(dates[i]) - Date.parse(dates[i - 1])) / 86400000;
+    assert.equal(gap, 7, `week ${i + 1} is ${gap} days after week ${i}`);
+  }
+});
+
+test('NINETY_DAY_TRACK leaks no employer or target-company names', () => {
+  const banned = /snsoft|sierra|decagon|scale ai|openai|anthropic|meegle|lark|casino|igaming|palantir/i;
+  for (const g of NINETY_DAY_TRACK) {
+    assert.ok(!banned.test(g.title), `title leaks: ${g.title}`);
+    assert.ok(!banned.test(g.note || ''), `note leaks: ${g.title}`);
+  }
+});
+
+test('NINETY_DAY_TRACK rows are valid goal shapes', () => {
+  for (const g of NINETY_DAY_TRACK) {
+    assert.ok(g.title && typeof g.title === 'string');
+    assert.ok(CATEGORIES.includes(g.category), `bad category: ${g.category}`);
+    assert.equal(g.status, 'planned');
+    assert.equal(g.progress, 0);
+    assert.ok(g.note && g.note.length > 20, `note too thin: ${g.title}`);
+  }
 });
 
 test('MILESTONE_TRACK is well-formed and ends at $20k', () => {
