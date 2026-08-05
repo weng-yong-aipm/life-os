@@ -9,7 +9,7 @@ I built it to solve my own problem, and to keep a single, focused codebase where
 could practice the full path from schema → row-level security → edge functions →
 tested UI, without a framework hiding the moving parts.
 
-### ▶ [Open the live demo](https://yongsnsoft2025-a11y.github.io/life-os/?demo=1) — no sign-up, no credentials
+### ▶ [Open the live demo](https://weng-yong-aipm.github.io/life-os/?demo=1) — no sign-up, no credentials
 
 The `?demo=1` flag renders invented fixture data. It is safe by construction rather
 than by care: in demo mode `getClient()` returns `null`, so the Supabase client is
