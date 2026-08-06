@@ -969,22 +969,50 @@ The manifest is 12 lines with no `shortcuts`. Adding them puts "Log a meal", "Lo
 Run: `cat manifest.webmanifest`
 Expected: a small JSON object with `name`, `start_url`, `icons`, etc. Note the exact icon `src` so the shortcut icons can reuse it.
 
-- [ ] **Step 2: Add the shortcuts array**
+- [ ] **Step 2: Make a URL fragment actually switch the tab (do this FIRST — without it the shortcuts are decorative)**
 
-Add a `shortcuts` key to the manifest object, reusing the existing icon `src` verbatim for each entry:
+**Verified defect in this plan's original draft:** `initTabs()` in `health/health.js` is purely
+click-driven — it toggles `.active` on `.tab-btn` / `.tab-panel` inside a click listener and never
+reads `location.hash`. A URL fragment therefore scrolls to the element but leaves the **Meal** panel
+active. All three shortcuts would land on the same tab and look like they work.
+
+The real panel ids are `tab-meal`, `tab-sleep`, `tab-workout` (buttons carry `data-tab`, not ids).
+
+In `health/health.js`, inside `initTabs()`, after the click listeners are wired, add:
+
+```js
+  /* A PWA shortcut opens this page at #tab-sleep and expects the Sleep tab.
+   * The tabs are click-driven, so without this the fragment only scrolls and
+   * the default Meal panel stays active — the shortcut looks like it works
+   * and silently lands on the wrong tab. */
+  const fromHash = location.hash.replace('#', '');
+  if (fromHash) {
+    const btn = document.querySelector(`.tab-btn[data-tab="${CSS.escape(fromHash.replace(/^tab-/, ''))}"]`);
+    if (btn) btn.click();
+  }
+```
+
+`CSS.escape` is used because `location.hash` is attacker-influenceable in principle and is being
+interpolated into a selector; it is a one-word builtin, not a dependency.
+
+- [ ] **Step 3: Add the shortcuts array**
+
+Add a `shortcuts` key to the manifest object, reusing the existing icon `src` verbatim for each entry.
+Note the anchors are `#tab-meal` and `#tab-sleep` — matching the real panel ids verified above — and
+`#quick`, which is a plain element on the learning page and needs no tab switching:
 
 ```json
   "shortcuts": [
     {
       "name": "Log a meal",
       "short_name": "Meal",
-      "url": "./health/index.html#meal",
+      "url": "./health/index.html#tab-meal",
       "icons": [{ "src": "icon.svg", "sizes": "any" }]
     },
     {
       "name": "Log sleep",
       "short_name": "Sleep",
-      "url": "./health/index.html#sleep",
+      "url": "./health/index.html#tab-sleep",
       "icons": [{ "src": "icon.svg", "sizes": "any" }]
     },
     {
@@ -998,24 +1026,27 @@ Add a `shortcuts` key to the manifest object, reusing the existing icon `src` ve
 
 If the existing icon `src` is not `icon.svg`, use the actual value.
 
-- [ ] **Step 3: Verify it is still valid JSON**
+- [ ] **Step 4: Verify it is still valid JSON**
 
 Run: `node -e "const m=require('./manifest.webmanifest'); if(!Array.isArray(m.shortcuts)||m.shortcuts.length!==3) throw new Error('shortcuts missing'); console.log('ok', m.shortcuts.map(s=>s.url).join(' '))"`
 Expected: `ok ./health/index.html#meal ./health/index.html#sleep ./learning/index.html#quick`
 
-- [ ] **Step 4: Make the anchors real**
+- [ ] **Step 5: Verify the tab-switch and anchors**
 
 Confirm the ids exist so the shortcut URLs land somewhere:
 
-Run: `grep -n 'id="panel-sleep"' health/index.html && grep -n 'id="quick"' learning/index.html`
-Expected: one hit each. The meal panel is the default tab, so `#meal` needs no anchor — **if `health/index.html` has no element with `id="meal"`, add `id="meal"` to the existing meal panel** so the fragment resolves.
+Run: `grep -oE 'id="tab-[a-z]+"' health/index.html | sort -u && grep -n 'id="quick"' learning/index.html`
+Expected: `id="tab-meal"`, `id="tab-sleep"`, `id="tab-workout"`, and one hit for `id="quick"`.
+Then confirm the Step 2 hash handler is present:
+Run: `grep -n "location.hash" health/health.js`
+Expected: one hit inside `initTabs()`. Without it the manifest entries are decorative.
 
-- [ ] **Step 5: Run the suite**
+- [ ] **Step 6: Run the suite**
 
 Run: `npm test`
 Expected: all pass, count unchanged.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add manifest.webmanifest health/index.html
