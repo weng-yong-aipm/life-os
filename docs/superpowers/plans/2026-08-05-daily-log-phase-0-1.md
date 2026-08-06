@@ -439,9 +439,18 @@ create table if not exists public.sleep (
 );
 
 create index if not exists sleep_user_id_idx on public.sleep (user_id);
-create index if not exists sleep_slept_on_idx on public.sleep (slept_on);
-create unique index if not exists sleep_import_uk
-  on public.sleep (user_id, source, source_key) where source_key is not null;
+
+-- ONE ROW PER NIGHT, enforced. slept_on is the WAKE date (a 23:00->07:00 night
+-- belongs to the morning you woke up), matching how the watch attributes sleep.
+--
+-- This is deliberately NOT the `where source_key is not null` import-dedup shape
+-- copied from migration 20260729064944: that shape leaves manual rows (source_key
+-- NULL) unconstrained, so the same night could be logged twice by hand, and a
+-- later Health Connect import would add a SECOND row for a night already entered
+-- manually — silently skewing every average. The importer must UPSERT on this
+-- constraint, updating times/duration while never clobbering a hand-typed
+-- quality or note (the watch does not know why the night was bad).
+create unique index if not exists sleep_night_uk on public.sleep (user_id, slept_on);
 
 alter table public.sleep enable row level security;
 
@@ -472,6 +481,11 @@ In `supabase/migrations/20260805130000_require_aal2_when_mfa_enrolled.sql`, the 
 
 Run: `grep -c "create policy" supabase/migrations/20260805140000_add_sleep_and_learning_minutes.sql`
 Expected: `5` (four `own_*` plus the aal2 restrictive policy).
+
+Run: `grep -n "sleep_night_uk" supabase/migrations/20260805140000_add_sleep_and_learning_minutes.sql`
+Expected: one hit — the one-row-per-night unique index on `(user_id, slept_on)`. There must be
+**no** `where source_key is not null` partial index on this table; that shape would leave
+hand-entered rows unconstrained.
 
 Run: `grep -n "sleep" supabase/migrations/20260805130000_require_aal2_when_mfa_enrolled.sql`
 Expected: one hit, inside the table array.
@@ -622,12 +636,16 @@ const toRow = (r) => ({
 });
 
 export const SleepRepo = {
+  /* UPSERT, not insert: the table enforces one row per night
+   * (unique on user_id, slept_on). A plain insert would throw a duplicate-key
+   * error the second time you correct a mistyped wake time — re-saving the same
+   * night has to mean "fix it", not "fail". */
   async save({ sleptOn, bedAt, wakeAt, durationMin, quality, note }) {
     const c = await getClient();
     if (!c) throw new Error('Sleep needs cloud sync — enable Supabase in config.js.');
     const { data: { user } } = await c.auth.getUser();
     if (!user) throw new Error('Not signed in.');
-    const { data, error } = await c.from('sleep').insert({
+    const { data, error } = await c.from('sleep').upsert({
       user_id: user.id,
       slept_on: sleptOn || localDateStr(),
       bed_at: bedAt || null,
@@ -636,7 +654,7 @@ export const SleepRepo = {
       quality: quality ?? null,
       note: note || null,
       source: 'manual',
-    }).select().single();
+    }, { onConflict: 'user_id,slept_on' }).select().single();
     if (error) throw error;
     return toRow(data);
   },
@@ -794,6 +812,12 @@ The existing Log tab is an 8-field form plus a paste-JSON textarea, and the 113 
 **Interfaces:**
 - Consumes: `localDateStr` (Task 1); `learning_sessions.minutes` (Task 4).
 - Produces: `LearningRepo.quickAdd({ title, minutes })`.
+
+**Also fix here (found by Task 1, same bug class, same file):** `learning/learning.js:5` still uses
+`new Date().toISOString().slice(0, 10)`. Replace it with `localDateStr()` and add the import —
+this task already edits that file, so leaving a known date bug in it would be dishonest. Do **not**
+touch `feed/feed-repo.js:65` or `feed/feed-ui.js:5`, which Task 1 also found; those files are out
+of scope for this plan and get their own task later.
 
 - [ ] **Step 1: Add the repo method**
 
