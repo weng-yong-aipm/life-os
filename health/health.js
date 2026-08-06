@@ -32,6 +32,16 @@ function initTabs() {
       document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
     });
   });
+
+  /* A PWA shortcut opens this page at #tab-sleep and expects the Sleep tab.
+   * The tabs are click-driven, so without this the fragment only scrolls and
+   * the default Meal panel stays active — the shortcut looks like it works
+   * and silently lands on the wrong tab. */
+  const fromHash = location.hash.replace('#', '');
+  if (fromHash) {
+    const btn = document.querySelector(`.tab-btn[data-tab="${CSS.escape(fromHash.replace(/^tab-/, ''))}"]`);
+    if (btn) btn.click();
+  }
 }
 
 /* ---------------- Meal tab ---------------- */
