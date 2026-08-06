@@ -3,53 +3,16 @@
 export const CATEGORIES = ['role', 'income', 'cert', 'course', 'skill'];
 export const STATUSES = ['planned', 'active', 'done'];
 
-/* Starter set: the FDE / $20k target, certs, courses, and the FDE competency
- * skill map (from the 天道 FDE breakdown). Used by the "Seed FDE track" button. */
-export const FDE_STARTER = [
-  { title: 'Become a Forward Deployed Engineer (FDE)', category: 'role', status: 'active', progress: 20 },
-  { title: 'Land a ~$20k USD/mo remote role', category: 'income', status: 'active', progress: 10 },
-  { title: 'PMP', category: 'cert', status: 'planned', progress: 0 },
-  { title: 'Scrum / Agile (PSM)', category: 'cert', status: 'planned', progress: 0 },
-  { title: 'Claude Code Architect', category: 'cert', status: 'planned', progress: 0 },
-  { title: 'NVIDIA (AI / Deep Learning)', category: 'cert', status: 'planned', progress: 0 },
-  { title: 'AI Essentials', category: 'course', status: 'planned', progress: 0 },
-  { title: 'AI Fundamentals', category: 'course', status: 'planned', progress: 0 },
-  { title: 'LLMs / 大模型', category: 'skill', status: 'active', progress: 60 },
-  { title: 'RAG', category: 'skill', status: 'active', progress: 55 },
-  { title: 'Agent engineering / Agent 工程', category: 'skill', status: 'active', progress: 65 },
-  { title: 'API integration', category: 'skill', status: 'active', progress: 70 },
-  { title: 'Data pipelines / 数据处理', category: 'skill', status: 'active', progress: 45 },
-  { title: 'Systems integration / 系统集成', category: 'skill', status: 'planned', progress: 30 },
-];
-
-/* The laddered career roadmap (Malaysia → $20k/mo AI PM + FDE) as trackable
- * milestones + income rungs. Seeded by the "Seed career ladder" button. */
-export const MILESTONE_TRACK = [
-  { title: 'P0 · Publish 2–3 public AI portfolio artifacts', category: 'role', status: 'active', progress: 25 },
-  { title: 'P0 · US-market resume + LinkedIn (AI PM / FDE)', category: 'role', status: 'planned', progress: 0 },
-  { title: 'P0 · First paid remote gig ($2–4k/mo)', category: 'income', status: 'planned', progress: 0 },
-  { title: 'P1 · Master agentic orchestration + evals + observability', category: 'skill', status: 'active', progress: 50 },
-  { title: 'P1 · Build in public — weekly AI PM/FDE posts', category: 'role', status: 'planned', progress: 0 },
-  { title: 'P1 · Steady remote contract ($5–8k/mo)', category: 'income', status: 'planned', progress: 0 },
-  { title: 'P2 · Land a location-agnostic AI PM / FDE role', category: 'role', status: 'planned', progress: 0 },
-  { title: 'P2 · Income $8–14k/mo', category: 'income', status: 'planned', progress: 0 },
-  { title: 'P3 · Senior seat or fractional consulting', category: 'role', status: 'planned', progress: 0 },
-  { title: 'P3 · Reach $20k USD/mo ($240k/yr)', category: 'income', status: 'planned', progress: 0 },
-];
-
-/* The actionable learning track from the brutal plan: the 4 real skill gaps +
- * the priority certs (S/A tier), distinct from the competency seed. Titles are
- * prefixed so they never collide with FDE_STARTER on re-seed. */
-export const LEARNING_TRACK = [
-  { title: 'Learn: Python for AI/ML (Kaggle → DeepLearning.AI)', category: 'skill', status: 'active', progress: 20 },
-  { title: 'Learn: Framework vocabulary (LangGraph/CrewAI/Ragas/LangSmith)', category: 'skill', status: 'active', progress: 40 },
-  { title: 'Learn: Cloud + deploy (AWS, Docker/K8s)', category: 'skill', status: 'planned', progress: 15 },
-  { title: 'Learn: Public technical writing (weekly posts)', category: 'skill', status: 'planned', progress: 5 },
-  { title: 'Cert: Anthropic AI Fluency (4h — do first)', category: 'cert', status: 'active', progress: 0 },
-  { title: 'Cert: AWS Cloud Practitioner → ML', category: 'cert', status: 'planned', progress: 0 },
-  { title: 'Cert: NVIDIA DLI — RAG Agents', category: 'cert', status: 'planned', progress: 0 },
-  { title: 'Cert: DeepLearning.AI — Agents/RAG', category: 'cert', status: 'planned', progress: 0 },
-];
+/* Retired 2026-08-06: FDE_STARTER, MILESTONE_TRACK and LEARNING_TRACK.
+ *
+ * Two reasons. They encoded a certification path (PMP, Scrum, NVIDIA, AWS) that two
+ * successive assessments concluded should be dropped — no employer at the target band
+ * checks for those. And their titles carried explicit income figures into a PUBLIC
+ * repository that this owner's CV links to, which hands a counterparty the target band
+ * before any conversation starts. The figures themselves stay in a private file.
+ *
+ * The live sets are AI_PM_RUBRIC (capabilities) and NINETY_DAY_TRACK (execution).
+ * Prior versions remain in git history if ever needed. */
 
 /* The AI-PM competency rubric distilled from the 可颂 收藏 clip (2026-07-29 抖音
  * review): the 5 capabilities a big-tech AI PM is hired on. Skills, prefixed so

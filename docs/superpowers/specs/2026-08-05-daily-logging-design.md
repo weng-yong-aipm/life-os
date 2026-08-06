@@ -205,8 +205,8 @@ This is an explicit override, not an oversight, and it is implemented as one:
 **Two traps to avoid while doing this:** `FDE_STARTER` (`career/goals.js:8-23`) still seeds PMP,
 Scrum/PSM, NVIDIA and "AI Essentials" — re-seeding it re-injects killed goals, and
 `career/goals.test.js:66` actively asserts `/PMP/` is present. `MILESTONE_TRACK` still ends at
-"$20k USD/mo", a target the 2026-08-05 calibration retired in favour of "take any Singapore offer
-at SGD 12k+". Any milestone UI built on those two sets will display abandoned targets.
+the retired headline income target, which the 2026-08-05 calibration replaced with a lower entry
+band recorded privately. Any milestone UI built on those retired sets would display abandoned targets.
 
 ---
 

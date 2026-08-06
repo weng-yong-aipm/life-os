@@ -74,7 +74,7 @@ Research sharpens the existing `LEARNING_TRACK`/`FDE_STARTER` certs with real na
 **Priority 4-5 / optional:** Google AI Essentials ($49, below skill level, brand only) · Azure AI-900 · PMP ($425+, only if roles list it) · Pragmatic (employer-sponsored only) · AIPMM (⚠ borderline marketing — skip).
 
 **Role bar (both share one crossover skill = "scope ambiguity → shippable + prove it with evals"):**
-- **FDE top-end:** production LLM/agent systems + **eval harnesses you design** (the #1 tested skill), enterprise deploy (SSO/SAML, VPC, SOC2), client-facing judgment. $20k/mo = low-mid FDE band; frontier labs want 25-50% travel, so remote on-ramps = AI startups + SI Palantir/Anthropic practices (Deloitte/Accenture).
+- **FDE top-end:** production LLM/agent systems + **eval harnesses you design** (the #1 tested skill), enterprise deploy (SSO/SAML, VPC, SOC2), client-facing judgment. Frontier labs expect 25-50% travel, so the remote on-ramps are AI startups and systems-integrator practices rather than the labs themselves. Target bands are recorded privately, not here.
 - **AI-PM top-end:** defines quality as a **versioned eval suite**, ships v1s in weeks, earns researcher trust, exceptional writing. Certs matter *less* here than 2-4 shipped projects + public writing.
 - **Weng's wedge:** the existing chatbot answer-key/eval + agentic cockpit work → reframe as a flagship **eval case study** + mini-PRDs; it serves BOTH roles at once.
 

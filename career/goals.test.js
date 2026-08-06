@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { summarize, clampProgress, FDE_STARTER, MILESTONE_TRACK, LEARNING_TRACK, AI_PM_RUBRIC, NINETY_DAY_TRACK, CATEGORIES, STATUSES } from './goals.js';
+import { summarize, clampProgress, AI_PM_RUBRIC, NINETY_DAY_TRACK, CATEGORIES, STATUSES } from './goals.js';
 
 test('all seed sets are well-formed with valid categories/statuses', () => {
-  for (const [name, set] of [['FDE_STARTER', FDE_STARTER], ['MILESTONE_TRACK', MILESTONE_TRACK], ['LEARNING_TRACK', LEARNING_TRACK], ['AI_PM_RUBRIC', AI_PM_RUBRIC]]) {
+  for (const [name, set] of [['AI_PM_RUBRIC', AI_PM_RUBRIC], ['NINETY_DAY_TRACK', NINETY_DAY_TRACK]]) {
     assert.ok(set.length >= 4, `${name} too small`);
     for (const g of set) {
       assert.ok(CATEGORIES.includes(g.category), `${name}: bad category ${g.category}`);
@@ -11,10 +11,6 @@ test('all seed sets are well-formed with valid categories/statuses', () => {
       assert.equal(clampProgress(g.progress), g.progress, `${name}: unclamped progress`);
     }
   }
-  // learning track leads with the 4h quick win + names Python
-  const t = LEARNING_TRACK.map((g) => g.title).join(' | ');
-  assert.match(t, /Anthropic AI Fluency/);
-  assert.match(t, /Python/);
   // the AI-PM rubric carries all 5 capabilities
   assert.equal(AI_PM_RUBRIC.length, 5);
   assert.match(AI_PM_RUBRIC.map((g) => g.title).join(' | '), /requirement decomposition/);
@@ -51,20 +47,6 @@ test('summarize handles empty and unknown values safely', () => {
   assert.equal(r.byCategory.skill.total, 1); // unknown category -> skill
 });
 
-test('FDE_STARTER is well-formed', () => {
-  assert.ok(FDE_STARTER.length >= 12);
-  for (const g of FDE_STARTER) {
-    assert.ok(g.title && typeof g.title === 'string');
-    assert.ok(CATEGORIES.includes(g.category), `bad category: ${g.category}`);
-    assert.ok(STATUSES.includes(g.status), `bad status: ${g.status}`);
-    assert.equal(clampProgress(g.progress), g.progress);
-  }
-  // covers the FDE competency skills + the certs the user named
-  const titles = FDE_STARTER.map((g) => g.title).join(' | ');
-  assert.match(titles, /RAG/);
-  assert.match(titles, /PMP/);
-  assert.match(titles, /\$20k/);
-});
 
 test('NINETY_DAY_TRACK has one row per week for 13 weeks', () => {
   assert.equal(NINETY_DAY_TRACK.length, 13);
@@ -97,14 +79,3 @@ test('NINETY_DAY_TRACK rows are valid goal shapes', () => {
   }
 });
 
-test('MILESTONE_TRACK is well-formed and ends at $20k', () => {
-  assert.ok(MILESTONE_TRACK.length >= 8);
-  for (const g of MILESTONE_TRACK) {
-    assert.ok(CATEGORIES.includes(g.category), `bad category: ${g.category}`);
-    assert.ok(STATUSES.includes(g.status), `bad status: ${g.status}`);
-    assert.equal(clampProgress(g.progress), g.progress);
-  }
-  const titles = MILESTONE_TRACK.map((g) => g.title).join(' | ');
-  assert.match(titles, /\$20k USD\/mo/);
-  assert.match(titles, /P0 ·/);
-});
