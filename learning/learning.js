@@ -132,8 +132,12 @@ function renderList() {
       verdictSelect.appendChild(opt);
     }
     verdictSelect.addEventListener('change', async (e) => {
-      await LearningRepo.update(s.id, { verdict: e.target.value });
-      refresh();
+      try {
+        await LearningRepo.update(s.id, { verdict: e.target.value });
+        refresh();
+      } catch (err) {
+        document.getElementById('learn-status').textContent = `Could not update (${err.message}).`;
+      }
     });
     li.append(left, right, verdictSelect);
     list.appendChild(li);

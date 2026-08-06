@@ -2,9 +2,8 @@
 --
 -- source/source_key/synced_at exist from day one so a later Health Connect
 -- import has somewhere to land and can be made idempotent without a second
--- migration. The partial unique index is what makes re-running an importer
--- safe: a manual row (source_key null) is never deduped against, so an import
--- can never overwrite something typed by hand.
+-- migration. See the unique index below for the dedup shape and why a
+-- partial index (source_key not null) was rejected in favor of a full one.
 
 create table if not exists public.sleep (
   id           uuid primary key default gen_random_uuid(),

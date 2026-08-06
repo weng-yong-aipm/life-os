@@ -3,7 +3,7 @@ import { WorkoutsRepo } from './workouts-repo.js';
 import { SleepRepo } from './sleep-repo.js';
 import { portionScale, dailyTotals, compareToTarget } from './nutrition.js';
 import { estimateBurn } from './calories-burned.js';
-import { sleepDurationMin, formatDuration, averageDuration } from './sleep.js';
+import { sleepDurationMin, formatDuration, averageDuration, sleepTimestamps } from './sleep.js';
 import { localDateStr } from '../shared/local-date.js';
 
 const todayStr = () => localDateStr();
@@ -76,6 +76,10 @@ function onAddFood() {
   const servings = parseFloat(document.getElementById('food-servings').value) || 1;
   const scaled = portionScale(food, servings);
   showMealPreview({ name: `${food.name} × ${servings}`, ...scaled });
+  /* Picking a food from the list replaces whatever the photo estimate put in
+   * the preview — the photo no longer describes this row, so its path must
+   * not be saved alongside it. */
+  pendingImagePath = null;
   document.getElementById('meal-status').textContent = '';
 }
 
@@ -222,18 +226,6 @@ function initSleepTab() {
   dateEl.value = todayStr();
   document.getElementById('sleep-save').addEventListener('click', onSaveSleep);
   refreshSleep();
-}
-
-/* A time input gives 'HH:MM' with no date. Bed time before ~12:00 is treated
- * as the same morning; anything later is the previous evening — otherwise a
- * 23:00 bedtime and a 07:00 wake on the same date would compute as negative. */
-function sleepTimestamps(sleptOn, bedTime, wakeTime) {
-  if (!bedTime || !wakeTime) return { bedAt: null, wakeAt: null };
-  const [bh] = bedTime.split(':').map(Number);
-  const bedDate = new Date(`${sleptOn}T${bedTime}:00`);
-  if (bh >= 12) bedDate.setDate(bedDate.getDate() - 1);
-  const wakeDate = new Date(`${sleptOn}T${wakeTime}:00`);
-  return { bedAt: bedDate.toISOString(), wakeAt: wakeDate.toISOString() };
 }
 
 async function onSaveSleep() {

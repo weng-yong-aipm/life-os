@@ -18,6 +18,18 @@ export function formatDuration(min) {
   return `${Math.floor(m / 60)}h ${m % 60}m`;
 }
 
+/* A time input gives 'HH:MM' with no date. Bed time before ~12:00 is treated
+ * as the same morning; anything later is the previous evening — otherwise a
+ * 23:00 bedtime and a 07:00 wake on the same date would compute as negative. */
+export function sleepTimestamps(sleptOn, bedTime, wakeTime) {
+  if (!bedTime || !wakeTime) return { bedAt: null, wakeAt: null };
+  const [bh] = bedTime.split(':').map(Number);
+  const bedDate = new Date(`${sleptOn}T${bedTime}:00`);
+  if (bh >= 12) bedDate.setDate(bedDate.getDate() - 1);
+  const wakeDate = new Date(`${sleptOn}T${wakeTime}:00`);
+  return { bedAt: bedDate.toISOString(), wakeAt: wakeDate.toISOString() };
+}
+
 export function averageDuration(rows) {
   const usable = (rows || [])
     .filter((r) => r?.durationMin != null)

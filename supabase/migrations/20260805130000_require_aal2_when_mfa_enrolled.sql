@@ -45,6 +45,13 @@ begin
     'feed_items', 'improvements', 'capture_queue', 'sleep'
   ]
   loop
+    -- 'sleep' is added here before the migration that creates it
+    -- (20260805140000) — an in-order replay from the baseline schema would
+    -- otherwise abort with "relation does not exist". Skip tables that don't
+    -- exist yet; the table's own migration ships the same policy once it does.
+    if to_regclass('public.' || t) is null then
+      continue;
+    end if;
     execute format(
       'drop policy if exists "aal2_when_mfa_enrolled" on public.%I', t
     );
