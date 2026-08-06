@@ -5,8 +5,15 @@ import { estimateBurn } from './calories-burned.js';
 import { localDateStr } from '../shared/local-date.js';
 
 const todayStr = () => localDateStr();
+/* parseFloat(x) || null turns a legitimate 0 into null — a zero-calorie drink
+ * would be stored as "unknown" rather than as zero. */
+const numOrNull = (v) => {
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : null;
+};
 let foods = [];
 let exercises = [];
+let pendingImagePath = null;
 
 initTabs();
 initMealTab();
@@ -66,7 +73,8 @@ async function onEstimatePhoto(e) {
   if (!file) return;
   status.textContent = 'Uploading and estimating...';
   try {
-    const { extracted } = await MealsRepo.estimatePhoto(file);
+    const { storagePath, extracted } = await MealsRepo.estimatePhoto(file);
+    pendingImagePath = storagePath;
     showMealPreview({
       name: extracted.name, calories: extracted.calories,
       proteinG: extracted.protein_g, carbsG: extracted.carbs_g, fatG: extracted.fat_g,
@@ -74,6 +82,7 @@ async function onEstimatePhoto(e) {
     status.textContent = '';
   } catch (err) {
     status.textContent = `Could not estimate (${err.message}). Enter it manually below.`;
+    pendingImagePath = err.storagePath || null;
     showMealPreview({ name: '', calories: '', proteinG: '', carbsG: '', fatG: '' });
   }
 }
@@ -84,12 +93,14 @@ async function onSaveMeal() {
     await MealsRepo.save({
       eatenAt: document.getElementById('meal-date').value || todayStr(),
       name: document.getElementById('meal-name').value || 'meal',
-      source: 'manual',
-      calories: parseFloat(document.getElementById('meal-cal').value) || null,
-      proteinG: parseFloat(document.getElementById('meal-protein').value) || null,
-      carbsG: parseFloat(document.getElementById('meal-carbs').value) || null,
-      fatG: parseFloat(document.getElementById('meal-fat').value) || null,
+      source: pendingImagePath ? 'photo' : 'manual',
+      imagePath: pendingImagePath,
+      calories: numOrNull(document.getElementById('meal-cal').value),
+      proteinG: numOrNull(document.getElementById('meal-protein').value),
+      carbsG: numOrNull(document.getElementById('meal-carbs').value),
+      fatG: numOrNull(document.getElementById('meal-fat').value),
     });
+    pendingImagePath = null;
     document.getElementById('meal-preview').hidden = true;
     status.textContent = 'Saved.';
     refreshDaily();
@@ -110,7 +121,18 @@ async function refreshDaily() {
   list.innerHTML = '';
   for (const m of meals) {
     const li = document.createElement('li');
-    li.textContent = `${m.name} — ${Math.round(m.calories || 0)} kcal`;
+    li.className = 'meal-row';
+    const label = document.createElement('span');
+    label.textContent = `${m.name} — ${Math.round(m.calories || 0)} kcal`;
+    if (m.imagePath) {
+      const img = document.createElement('img');
+      img.className = 'meal-thumb';
+      img.alt = '';
+      img.loading = 'lazy';
+      MealsRepo.signedUrlFor(m.imagePath).then((url) => { if (url) img.src = url; });
+      li.appendChild(img);
+    }
+    li.appendChild(label);
     list.appendChild(li);
   }
 }
@@ -143,7 +165,7 @@ async function onLogWorkout(e) {
       category: ex?.category || null,
       sets: parseInt(document.getElementById('workout-sets').value, 10) || null,
       reps: parseInt(document.getElementById('workout-reps').value, 10) || null,
-      weightKg: parseFloat(document.getElementById('workout-weight').value) || null,
+      weightKg: numOrNull(document.getElementById('workout-weight').value),
       durationMin,
       caloriesBurned,
     });

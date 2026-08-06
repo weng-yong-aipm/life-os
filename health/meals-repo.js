@@ -8,6 +8,7 @@ function localId() {
 function toRow(m) {
   return {
     id: m.id, eatenAt: m.eaten_at, name: m.name, source: m.source,
+    imagePath: m.image_path,
     calories: m.calories, proteinG: m.protein_g, carbsG: m.carbs_g, fatG: m.fat_g,
   };
 }
@@ -43,6 +44,19 @@ export const MealsRepo = {
     }).select().single();
     if (error) throw error;
     return toRow(data);
+  },
+
+  /* A short-lived signed URL for a private-bucket image. The meals bucket is
+   * private, so a stored path is not directly fetchable — without this the
+   * photo can be uploaded and linked but never displayed. Returns null rather
+   * than throwing: a missing thumbnail must not break the day list. */
+  async signedUrlFor(imagePath) {
+    if (!imagePath) return null;
+    const c = await getClient();
+    if (!c) return null;
+    const { data, error } = await c.storage.from('meals').createSignedUrl(imagePath, 3600);
+    if (error) return null;
+    return data?.signedUrl ?? null;
   },
 
   async listForDay(date) {
