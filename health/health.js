@@ -1,7 +1,9 @@
 import { MealsRepo } from './meals-repo.js';
 import { WorkoutsRepo } from './workouts-repo.js';
+import { SleepRepo } from './sleep-repo.js';
 import { portionScale, dailyTotals, compareToTarget } from './nutrition.js';
 import { estimateBurn } from './calories-burned.js';
+import { sleepDurationMin, formatDuration, averageDuration } from './sleep.js';
 import { localDateStr } from '../shared/local-date.js';
 
 const todayStr = () => localDateStr();
@@ -18,6 +20,7 @@ let pendingImagePath = null;
 initTabs();
 initMealTab();
 initWorkoutTab();
+initSleepTab();
 
 function initTabs() {
   const buttons = document.querySelectorAll('.tab-btn');
@@ -197,6 +200,64 @@ async function refreshWeek() {
     const setsStr = w.sets ? ` ${w.sets}×${w.reps || ''}` : '';
     const burnStr = w.caloriesBurned ? ` (~${Math.round(w.caloriesBurned)} kcal)` : '';
     li.textContent = `${w.doneAt}: ${w.exercise}${setsStr}${burnStr}`;
+    list.appendChild(li);
+  }
+}
+
+/* ---------------- Sleep tab ---------------- */
+
+function initSleepTab() {
+  const dateEl = document.getElementById('sleep-date');
+  if (!dateEl) return;
+  dateEl.value = todayStr();
+  document.getElementById('sleep-save').addEventListener('click', onSaveSleep);
+  refreshSleep();
+}
+
+/* A time input gives 'HH:MM' with no date. Bed time before ~12:00 is treated
+ * as the same morning; anything later is the previous evening — otherwise a
+ * 23:00 bedtime and a 07:00 wake on the same date would compute as negative. */
+function sleepTimestamps(sleptOn, bedTime, wakeTime) {
+  if (!bedTime || !wakeTime) return { bedAt: null, wakeAt: null };
+  const [bh] = bedTime.split(':').map(Number);
+  const bedDate = new Date(`${sleptOn}T${bedTime}:00`);
+  if (bh >= 12) bedDate.setDate(bedDate.getDate() - 1);
+  const wakeDate = new Date(`${sleptOn}T${wakeTime}:00`);
+  return { bedAt: bedDate.toISOString(), wakeAt: wakeDate.toISOString() };
+}
+
+async function onSaveSleep() {
+  const status = document.getElementById('sleep-status');
+  const sleptOn = document.getElementById('sleep-date').value || todayStr();
+  const { bedAt, wakeAt } = sleepTimestamps(
+    sleptOn,
+    document.getElementById('sleep-bed').value,
+    document.getElementById('sleep-wake').value,
+  );
+  try {
+    await SleepRepo.save({
+      sleptOn, bedAt, wakeAt,
+      durationMin: sleepDurationMin(bedAt, wakeAt),
+      quality: numOrNull(document.getElementById('sleep-quality').value),
+      note: document.getElementById('sleep-note').value,
+    });
+    status.textContent = 'Saved.';
+    refreshSleep();
+  } catch (err) {
+    status.textContent = `Could not save (${err.message}).`;
+  }
+}
+
+async function refreshSleep() {
+  const rows = await SleepRepo.listRecent(7);
+  const avg = averageDuration(rows);
+  document.getElementById('sleep-avg').textContent =
+    avg == null ? '' : `7-night average: ${formatDuration(avg)}`;
+  const list = document.getElementById('sleep-list');
+  list.innerHTML = '';
+  for (const r of rows) {
+    const li = document.createElement('li');
+    li.textContent = `${r.sleptOn} — ${formatDuration(r.durationMin)}${r.quality ? ` · ${r.quality}/5` : ''}`;
     list.appendChild(li);
   }
 }
