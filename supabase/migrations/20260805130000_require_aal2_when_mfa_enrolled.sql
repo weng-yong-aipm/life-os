@@ -42,7 +42,7 @@ begin
     'receipts', 'receipt_items', 'pay_settings', 'work_hours',
     'expenses', 'meals', 'workouts',
     'learning_sessions', 'learning_materials', 'career_goals',
-    'feed_items', 'improvements', 'capture_queue'
+    'feed_items', 'improvements', 'capture_queue', 'sleep'
   ]
   loop
     execute format(
