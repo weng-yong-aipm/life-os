@@ -811,7 +811,7 @@ The existing Log tab is an 8-field form plus a paste-JSON textarea, and the 113 
 
 **Interfaces:**
 - Consumes: `localDateStr` (Task 1); `learning_sessions.minutes` (Task 4).
-- Produces: `LearningRepo.quickAdd({ title, minutes })`.
+- Produces: `LearningRepo.quickAdd({ title, minutes })`, `LearningRepo.update(id, { verdict, project })`.
 
 **Also fix here (found by Task 1, same bug class, same file):** `learning/learning.js:5` still uses
 `new Date().toISOString().slice(0, 10)`. Replace it with `localDateStr()` and add the import —
@@ -893,20 +893,62 @@ async function onQuickAdd() {
 
 **Match the file's existing structure** — if `learning.js` wraps its setup in an init function rather than running at module top level, put these inside it.
 
-- [ ] **Step 4: Run the suite**
+- [ ] **Step 4: Add the promote-to-applied control (without this, every row this task creates is dead data)**
+
+`learning/goal-link.js`'s `linkAppliedToGoals` filters `verdict === 'applied'` first. All 113
+existing rows are `'considering'` with `project = NULL`, which is exactly why that tested function
+returns an empty array every time. A quick-add that only ever writes `'considering'` reproduces
+that dead-data bug at one row per day, forever — so the control that moves a row out of
+`'considering'` ships in the same task, not in a later phase.
+
+Add to `learning/learning-repo.js`, next to `quickAdd`:
+
+```js
+  /* The only way a row leaves 'considering'. Without this the whole
+   * learning->goals link is unreachable: linkAppliedToGoals filters on
+   * verdict === 'applied' and nothing could ever set it. */
+  async update(id, { verdict, project }) {
+    const c = await getClient();
+    if (!c) throw new Error('Learning needs cloud sync — enable Supabase in config.js.');
+    const patch = {};
+    if (verdict !== undefined) patch.verdict = verdict;
+    if (project !== undefined) patch.project = project || null;
+    const { data, error } = await c.from('learning_sessions')
+      .update(patch).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+  },
+```
+
+In the existing learning list rendering in `learning/learning.js`, add a verdict `<select>` per row
+bound to that method. Read how the list is currently rendered and match it — if rows are built with
+`document.createElement`, build the select the same way; if with a template string, follow that.
+The select's options are exactly `considering`, `applied`, `rejected`, and changing it calls
+`LearningRepo.update(row.id, { verdict: e.target.value })` then re-renders.
+
+**Do not** change the default for new quick-adds — they stay `'considering'`. `'applied'` is also
+the gate for the Desk→Shelf publish path (`verdict='applied' AND publish=1`), so defaulting to it
+here would make every casual note publish-eligible.
+
+- [ ] **Step 5: Run the suite**
 
 Run: `npm test`
 Expected: all pass, count unchanged from Task 5 (no new pure logic).
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add learning/index.html learning/learning.js learning/learning-repo.js
-git commit -m "feat(learning): one-field daily takeaway
+git commit -m "feat(learning): one-field daily takeaway, and a way out of 'considering'
 
 The existing form is 8 fields plus a paste-JSON textarea, and the 113 live
 rows cluster on three dates — a batch import, not a habit. The Desk already
-captures what was consumed; this records what was concluded."
+captures what was consumed; this records what was concluded.
+
+Ships the verdict control in the same commit deliberately: linkAppliedToGoals
+filters on verdict === 'applied', all 113 existing rows are 'considering', and
+nothing in the app could ever change that — so a quick-add alone would have
+recreated the same dead data at one row per day."
 ```
 
 ---
