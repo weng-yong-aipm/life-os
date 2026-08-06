@@ -1,5 +1,6 @@
 import { getClient } from '../db.js';
 import { demoMode, fixtures } from '../demo.js';
+import { localDateStr } from '../shared/local-date.js';
 
 function toRow(w) {
   return {
@@ -12,7 +13,7 @@ function toRow(w) {
 function addDays(dateStr, days) {
   const d = new Date(dateStr + 'T00:00:00');
   d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  return localDateStr(d);
 }
 
 export const WorkoutsRepo = {

@@ -439,9 +439,18 @@ create table if not exists public.sleep (
 );
 
 create index if not exists sleep_user_id_idx on public.sleep (user_id);
-create index if not exists sleep_slept_on_idx on public.sleep (slept_on);
-create unique index if not exists sleep_import_uk
-  on public.sleep (user_id, source, source_key) where source_key is not null;
+
+-- ONE ROW PER NIGHT, enforced. slept_on is the WAKE date (a 23:00->07:00 night
+-- belongs to the morning you woke up), matching how the watch attributes sleep.
+--
+-- This is deliberately NOT the `where source_key is not null` import-dedup shape
+-- copied from migration 20260729064944: that shape leaves manual rows (source_key
+-- NULL) unconstrained, so the same night could be logged twice by hand, and a
+-- later Health Connect import would add a SECOND row for a night already entered
+-- manually — silently skewing every average. The importer must UPSERT on this
+-- constraint, updating times/duration while never clobbering a hand-typed
+-- quality or note (the watch does not know why the night was bad).
+create unique index if not exists sleep_night_uk on public.sleep (user_id, slept_on);
 
 alter table public.sleep enable row level security;
 
@@ -472,6 +481,11 @@ In `supabase/migrations/20260805130000_require_aal2_when_mfa_enrolled.sql`, the 
 
 Run: `grep -c "create policy" supabase/migrations/20260805140000_add_sleep_and_learning_minutes.sql`
 Expected: `5` (four `own_*` plus the aal2 restrictive policy).
+
+Run: `grep -n "sleep_night_uk" supabase/migrations/20260805140000_add_sleep_and_learning_minutes.sql`
+Expected: one hit — the one-row-per-night unique index on `(user_id, slept_on)`. There must be
+**no** `where source_key is not null` partial index on this table; that shape would leave
+hand-entered rows unconstrained.
 
 Run: `grep -n "sleep" supabase/migrations/20260805130000_require_aal2_when_mfa_enrolled.sql`
 Expected: one hit, inside the table array.
@@ -622,12 +636,16 @@ const toRow = (r) => ({
 });
 
 export const SleepRepo = {
+  /* UPSERT, not insert: the table enforces one row per night
+   * (unique on user_id, slept_on). A plain insert would throw a duplicate-key
+   * error the second time you correct a mistyped wake time — re-saving the same
+   * night has to mean "fix it", not "fail". */
   async save({ sleptOn, bedAt, wakeAt, durationMin, quality, note }) {
     const c = await getClient();
     if (!c) throw new Error('Sleep needs cloud sync — enable Supabase in config.js.');
     const { data: { user } } = await c.auth.getUser();
     if (!user) throw new Error('Not signed in.');
-    const { data, error } = await c.from('sleep').insert({
+    const { data, error } = await c.from('sleep').upsert({
       user_id: user.id,
       slept_on: sleptOn || localDateStr(),
       bed_at: bedAt || null,
@@ -636,7 +654,7 @@ export const SleepRepo = {
       quality: quality ?? null,
       note: note || null,
       source: 'manual',
-    }).select().single();
+    }, { onConflict: 'user_id,slept_on' }).select().single();
     if (error) throw error;
     return toRow(data);
   },
@@ -793,7 +811,13 @@ The existing Log tab is an 8-field form plus a paste-JSON textarea, and the 113 
 
 **Interfaces:**
 - Consumes: `localDateStr` (Task 1); `learning_sessions.minutes` (Task 4).
-- Produces: `LearningRepo.quickAdd({ title, minutes })`.
+- Produces: `LearningRepo.quickAdd({ title, minutes })`, `LearningRepo.update(id, { verdict, project })`.
+
+**Also fix here (found by Task 1, same bug class, same file):** `learning/learning.js:5` still uses
+`new Date().toISOString().slice(0, 10)`. Replace it with `localDateStr()` and add the import —
+this task already edits that file, so leaving a known date bug in it would be dishonest. Do **not**
+touch `feed/feed-repo.js:65` or `feed/feed-ui.js:5`, which Task 1 also found; those files are out
+of scope for this plan and get their own task later.
 
 - [ ] **Step 1: Add the repo method**
 
@@ -869,20 +893,62 @@ async function onQuickAdd() {
 
 **Match the file's existing structure** — if `learning.js` wraps its setup in an init function rather than running at module top level, put these inside it.
 
-- [ ] **Step 4: Run the suite**
+- [ ] **Step 4: Add the promote-to-applied control (without this, every row this task creates is dead data)**
+
+`learning/goal-link.js`'s `linkAppliedToGoals` filters `verdict === 'applied'` first. All 113
+existing rows are `'considering'` with `project = NULL`, which is exactly why that tested function
+returns an empty array every time. A quick-add that only ever writes `'considering'` reproduces
+that dead-data bug at one row per day, forever — so the control that moves a row out of
+`'considering'` ships in the same task, not in a later phase.
+
+Add to `learning/learning-repo.js`, next to `quickAdd`:
+
+```js
+  /* The only way a row leaves 'considering'. Without this the whole
+   * learning->goals link is unreachable: linkAppliedToGoals filters on
+   * verdict === 'applied' and nothing could ever set it. */
+  async update(id, { verdict, project }) {
+    const c = await getClient();
+    if (!c) throw new Error('Learning needs cloud sync — enable Supabase in config.js.');
+    const patch = {};
+    if (verdict !== undefined) patch.verdict = verdict;
+    if (project !== undefined) patch.project = project || null;
+    const { data, error } = await c.from('learning_sessions')
+      .update(patch).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+  },
+```
+
+In the existing learning list rendering in `learning/learning.js`, add a verdict `<select>` per row
+bound to that method. Read how the list is currently rendered and match it — if rows are built with
+`document.createElement`, build the select the same way; if with a template string, follow that.
+The select's options are exactly `considering`, `applied`, `rejected`, and changing it calls
+`LearningRepo.update(row.id, { verdict: e.target.value })` then re-renders.
+
+**Do not** change the default for new quick-adds — they stay `'considering'`. `'applied'` is also
+the gate for the Desk→Shelf publish path (`verdict='applied' AND publish=1`), so defaulting to it
+here would make every casual note publish-eligible.
+
+- [ ] **Step 5: Run the suite**
 
 Run: `npm test`
 Expected: all pass, count unchanged from Task 5 (no new pure logic).
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add learning/index.html learning/learning.js learning/learning-repo.js
-git commit -m "feat(learning): one-field daily takeaway
+git commit -m "feat(learning): one-field daily takeaway, and a way out of 'considering'
 
 The existing form is 8 fields plus a paste-JSON textarea, and the 113 live
 rows cluster on three dates — a batch import, not a habit. The Desk already
-captures what was consumed; this records what was concluded."
+captures what was consumed; this records what was concluded.
+
+Ships the verdict control in the same commit deliberately: linkAppliedToGoals
+filters on verdict === 'applied', all 113 existing rows are 'considering', and
+nothing in the app could ever change that — so a quick-add alone would have
+recreated the same dead data at one row per day."
 ```
 
 ---
@@ -903,22 +969,50 @@ The manifest is 12 lines with no `shortcuts`. Adding them puts "Log a meal", "Lo
 Run: `cat manifest.webmanifest`
 Expected: a small JSON object with `name`, `start_url`, `icons`, etc. Note the exact icon `src` so the shortcut icons can reuse it.
 
-- [ ] **Step 2: Add the shortcuts array**
+- [ ] **Step 2: Make a URL fragment actually switch the tab (do this FIRST — without it the shortcuts are decorative)**
 
-Add a `shortcuts` key to the manifest object, reusing the existing icon `src` verbatim for each entry:
+**Verified defect in this plan's original draft:** `initTabs()` in `health/health.js` is purely
+click-driven — it toggles `.active` on `.tab-btn` / `.tab-panel` inside a click listener and never
+reads `location.hash`. A URL fragment therefore scrolls to the element but leaves the **Meal** panel
+active. All three shortcuts would land on the same tab and look like they work.
+
+The real panel ids are `tab-meal`, `tab-sleep`, `tab-workout` (buttons carry `data-tab`, not ids).
+
+In `health/health.js`, inside `initTabs()`, after the click listeners are wired, add:
+
+```js
+  /* A PWA shortcut opens this page at #tab-sleep and expects the Sleep tab.
+   * The tabs are click-driven, so without this the fragment only scrolls and
+   * the default Meal panel stays active — the shortcut looks like it works
+   * and silently lands on the wrong tab. */
+  const fromHash = location.hash.replace('#', '');
+  if (fromHash) {
+    const btn = document.querySelector(`.tab-btn[data-tab="${CSS.escape(fromHash.replace(/^tab-/, ''))}"]`);
+    if (btn) btn.click();
+  }
+```
+
+`CSS.escape` is used because `location.hash` is attacker-influenceable in principle and is being
+interpolated into a selector; it is a one-word builtin, not a dependency.
+
+- [ ] **Step 3: Add the shortcuts array**
+
+Add a `shortcuts` key to the manifest object, reusing the existing icon `src` verbatim for each entry.
+Note the anchors are `#tab-meal` and `#tab-sleep` — matching the real panel ids verified above — and
+`#quick`, which is a plain element on the learning page and needs no tab switching:
 
 ```json
   "shortcuts": [
     {
       "name": "Log a meal",
       "short_name": "Meal",
-      "url": "./health/index.html#meal",
+      "url": "./health/index.html#tab-meal",
       "icons": [{ "src": "icon.svg", "sizes": "any" }]
     },
     {
       "name": "Log sleep",
       "short_name": "Sleep",
-      "url": "./health/index.html#sleep",
+      "url": "./health/index.html#tab-sleep",
       "icons": [{ "src": "icon.svg", "sizes": "any" }]
     },
     {
@@ -932,24 +1026,27 @@ Add a `shortcuts` key to the manifest object, reusing the existing icon `src` ve
 
 If the existing icon `src` is not `icon.svg`, use the actual value.
 
-- [ ] **Step 3: Verify it is still valid JSON**
+- [ ] **Step 4: Verify it is still valid JSON**
 
 Run: `node -e "const m=require('./manifest.webmanifest'); if(!Array.isArray(m.shortcuts)||m.shortcuts.length!==3) throw new Error('shortcuts missing'); console.log('ok', m.shortcuts.map(s=>s.url).join(' '))"`
 Expected: `ok ./health/index.html#meal ./health/index.html#sleep ./learning/index.html#quick`
 
-- [ ] **Step 4: Make the anchors real**
+- [ ] **Step 5: Verify the tab-switch and anchors**
 
 Confirm the ids exist so the shortcut URLs land somewhere:
 
-Run: `grep -n 'id="panel-sleep"' health/index.html && grep -n 'id="quick"' learning/index.html`
-Expected: one hit each. The meal panel is the default tab, so `#meal` needs no anchor — **if `health/index.html` has no element with `id="meal"`, add `id="meal"` to the existing meal panel** so the fragment resolves.
+Run: `grep -oE 'id="tab-[a-z]+"' health/index.html | sort -u && grep -n 'id="quick"' learning/index.html`
+Expected: `id="tab-meal"`, `id="tab-sleep"`, `id="tab-workout"`, and one hit for `id="quick"`.
+Then confirm the Step 2 hash handler is present:
+Run: `grep -n "location.hash" health/health.js`
+Expected: one hit inside `initTabs()`. Without it the manifest entries are decorative.
 
-- [ ] **Step 5: Run the suite**
+- [ ] **Step 6: Run the suite**
 
 Run: `npm test`
 Expected: all pass, count unchanged.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add manifest.webmanifest health/index.html

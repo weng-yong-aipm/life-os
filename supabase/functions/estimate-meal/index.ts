@@ -80,7 +80,13 @@ Deno.serve(async (req) => {
     },
     body: JSON.stringify({
       model: 'claude-sonnet-5',
-      max_tokens: 512,
+      // max_tokens caps thinking + output TOGETHER. Sonnet 5 runs adaptive
+      // thinking by default, so 512 could truncate the JSON mid-object —
+      // JSON.parse then throws, the function 502s, and the UI silently
+      // degrades to manual entry. Nutrition extraction needs no reasoning
+      // budget, so disable thinking outright and leave room for the object.
+      max_tokens: 2000,
+      thinking: { type: 'disabled' },
       messages: [
         {
           role: 'user',

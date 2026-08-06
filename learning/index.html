@@ -24,6 +24,16 @@
 <section id="tab-log" class="tab-panel active">
   <div class="cols">
     <div class="col">
+      <h2>Quick add</h2>
+      <div id="quick" class="quick-add">
+        <label>What did you learn about AI today?
+          <input type="text" id="quick-title" placeholder="one line — the takeaway, not the link" />
+        </label>
+        <label>Minutes <input type="number" id="quick-minutes" min="1" placeholder="optional" /></label>
+        <button type="button" id="quick-save">Add</button>
+        <p id="quick-status"></p>
+      </div>
+
       <h2>Add entry</h2>
       <form id="learn-form">
         <label>Date <input type="date" id="learn-date" required /></label>

@@ -8,5 +8,25 @@
   "theme_color": "#2a6df4",
   "icons": [
     { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Log a meal",
+      "short_name": "Meal",
+      "url": "./health/index.html#tab-meal",
+      "icons": [{ "src": "icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Log sleep",
+      "short_name": "Sleep",
+      "url": "./health/index.html#tab-sleep",
+      "icons": [{ "src": "icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Log learning",
+      "short_name": "Learning",
+      "url": "./learning/index.html#quick",
+      "icons": [{ "src": "icon.svg", "sizes": "any" }]
+    }
   ]
 }

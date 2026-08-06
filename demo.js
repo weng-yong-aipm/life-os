@@ -10,6 +10,8 @@
  * Everything here is invented. No real row, note, or number appears in this
  * file — several real rows cite work systems, and this repo is public. */
 
+import { localDateStr } from './shared/local-date.js';
+
 /* Guarded so this module can be imported under Node — db.js imports it, and
  * db.js is reachable from the test tree. */
 export const demoMode = typeof location !== 'undefined'
@@ -19,7 +21,7 @@ const today = new Date();
 const iso = (offsetDays = 0) => {
   const d = new Date(today);
   d.setDate(d.getDate() + offsetDays);
-  return d.toISOString().slice(0, 10);
+  return localDateStr(d);
 };
 
 export const fixtures = {

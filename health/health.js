@@ -1,15 +1,26 @@
 import { MealsRepo } from './meals-repo.js';
 import { WorkoutsRepo } from './workouts-repo.js';
+import { SleepRepo } from './sleep-repo.js';
 import { portionScale, dailyTotals, compareToTarget } from './nutrition.js';
 import { estimateBurn } from './calories-burned.js';
+import { sleepDurationMin, formatDuration, averageDuration, sleepTimestamps } from './sleep.js';
+import { localDateStr } from '../shared/local-date.js';
 
-const todayStr = () => new Date().toISOString().slice(0, 10);
+const todayStr = () => localDateStr();
+/* parseFloat(x) || null turns a legitimate 0 into null — a zero-calorie drink
+ * would be stored as "unknown" rather than as zero. */
+const numOrNull = (v) => {
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : null;
+};
 let foods = [];
 let exercises = [];
+let pendingImagePath = null;
 
 initTabs();
 initMealTab();
 initWorkoutTab();
+initSleepTab();
 
 function initTabs() {
   const buttons = document.querySelectorAll('.tab-btn');
@@ -21,6 +32,16 @@ function initTabs() {
       document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
     });
   });
+
+  /* A PWA shortcut opens this page at #tab-sleep and expects the Sleep tab.
+   * The tabs are click-driven, so without this the fragment only scrolls and
+   * the default Meal panel stays active — the shortcut looks like it works
+   * and silently lands on the wrong tab. */
+  const fromHash = location.hash.replace('#', '');
+  if (fromHash) {
+    const btn = document.querySelector(`.tab-btn[data-tab="${CSS.escape(fromHash.replace(/^tab-/, ''))}"]`);
+    if (btn) btn.click();
+  }
 }
 
 /* ---------------- Meal tab ---------------- */
@@ -55,6 +76,10 @@ function onAddFood() {
   const servings = parseFloat(document.getElementById('food-servings').value) || 1;
   const scaled = portionScale(food, servings);
   showMealPreview({ name: `${food.name} × ${servings}`, ...scaled });
+  /* Picking a food from the list replaces whatever the photo estimate put in
+   * the preview — the photo no longer describes this row, so its path must
+   * not be saved alongside it. */
+  pendingImagePath = null;
   document.getElementById('meal-status').textContent = '';
 }
 
@@ -65,7 +90,8 @@ async function onEstimatePhoto(e) {
   if (!file) return;
   status.textContent = 'Uploading and estimating...';
   try {
-    const { extracted } = await MealsRepo.estimatePhoto(file);
+    const { storagePath, extracted } = await MealsRepo.estimatePhoto(file);
+    pendingImagePath = storagePath;
     showMealPreview({
       name: extracted.name, calories: extracted.calories,
       proteinG: extracted.protein_g, carbsG: extracted.carbs_g, fatG: extracted.fat_g,
@@ -73,6 +99,7 @@ async function onEstimatePhoto(e) {
     status.textContent = '';
   } catch (err) {
     status.textContent = `Could not estimate (${err.message}). Enter it manually below.`;
+    pendingImagePath = err.storagePath || null;
     showMealPreview({ name: '', calories: '', proteinG: '', carbsG: '', fatG: '' });
   }
 }
@@ -83,12 +110,14 @@ async function onSaveMeal() {
     await MealsRepo.save({
       eatenAt: document.getElementById('meal-date').value || todayStr(),
       name: document.getElementById('meal-name').value || 'meal',
-      source: 'manual',
-      calories: parseFloat(document.getElementById('meal-cal').value) || null,
-      proteinG: parseFloat(document.getElementById('meal-protein').value) || null,
-      carbsG: parseFloat(document.getElementById('meal-carbs').value) || null,
-      fatG: parseFloat(document.getElementById('meal-fat').value) || null,
+      source: pendingImagePath ? 'photo' : 'manual',
+      imagePath: pendingImagePath,
+      calories: numOrNull(document.getElementById('meal-cal').value),
+      proteinG: numOrNull(document.getElementById('meal-protein').value),
+      carbsG: numOrNull(document.getElementById('meal-carbs').value),
+      fatG: numOrNull(document.getElementById('meal-fat').value),
     });
+    pendingImagePath = null;
     document.getElementById('meal-preview').hidden = true;
     status.textContent = 'Saved.';
     refreshDaily();
@@ -109,7 +138,18 @@ async function refreshDaily() {
   list.innerHTML = '';
   for (const m of meals) {
     const li = document.createElement('li');
-    li.textContent = `${m.name} — ${Math.round(m.calories || 0)} kcal`;
+    li.className = 'meal-row';
+    const label = document.createElement('span');
+    label.textContent = `${m.name} — ${Math.round(m.calories || 0)} kcal`;
+    if (m.imagePath) {
+      const img = document.createElement('img');
+      img.className = 'meal-thumb';
+      img.alt = '';
+      img.loading = 'lazy';
+      MealsRepo.signedUrlFor(m.imagePath).then((url) => { if (url) img.src = url; });
+      li.appendChild(img);
+    }
+    li.appendChild(label);
     list.appendChild(li);
   }
 }
@@ -142,7 +182,7 @@ async function onLogWorkout(e) {
       category: ex?.category || null,
       sets: parseInt(document.getElementById('workout-sets').value, 10) || null,
       reps: parseInt(document.getElementById('workout-reps').value, 10) || null,
-      weightKg: parseFloat(document.getElementById('workout-weight').value) || null,
+      weightKg: numOrNull(document.getElementById('workout-weight').value),
       durationMin,
       caloriesBurned,
     });
@@ -159,7 +199,7 @@ function weekStart() {
   const d = new Date();
   const day = (d.getDay() + 6) % 7; // Monday = 0
   d.setDate(d.getDate() - day);
-  return d.toISOString().slice(0, 10);
+  return localDateStr(d);
 }
 
 async function refreshWeek() {
@@ -174,6 +214,52 @@ async function refreshWeek() {
     const setsStr = w.sets ? ` ${w.sets}×${w.reps || ''}` : '';
     const burnStr = w.caloriesBurned ? ` (~${Math.round(w.caloriesBurned)} kcal)` : '';
     li.textContent = `${w.doneAt}: ${w.exercise}${setsStr}${burnStr}`;
+    list.appendChild(li);
+  }
+}
+
+/* ---------------- Sleep tab ---------------- */
+
+function initSleepTab() {
+  const dateEl = document.getElementById('sleep-date');
+  if (!dateEl) return;
+  dateEl.value = todayStr();
+  document.getElementById('sleep-save').addEventListener('click', onSaveSleep);
+  refreshSleep();
+}
+
+async function onSaveSleep() {
+  const status = document.getElementById('sleep-status');
+  const sleptOn = document.getElementById('sleep-date').value || todayStr();
+  const { bedAt, wakeAt } = sleepTimestamps(
+    sleptOn,
+    document.getElementById('sleep-bed').value,
+    document.getElementById('sleep-wake').value,
+  );
+  try {
+    await SleepRepo.save({
+      sleptOn, bedAt, wakeAt,
+      durationMin: sleepDurationMin(bedAt, wakeAt),
+      quality: numOrNull(document.getElementById('sleep-quality').value),
+      note: document.getElementById('sleep-note').value,
+    });
+    status.textContent = 'Saved.';
+    refreshSleep();
+  } catch (err) {
+    status.textContent = `Could not save (${err.message}).`;
+  }
+}
+
+async function refreshSleep() {
+  const rows = await SleepRepo.listRecent(7);
+  const avg = averageDuration(rows);
+  document.getElementById('sleep-avg').textContent =
+    avg == null ? '' : `7-night average: ${formatDuration(avg)}`;
+  const list = document.getElementById('sleep-list');
+  list.innerHTML = '';
+  for (const r of rows) {
+    const li = document.createElement('li');
+    li.textContent = `${r.sleptOn} — ${formatDuration(r.durationMin)}${r.quality ? ` · ${r.quality}/5` : ''}`;
     list.appendChild(li);
   }
 }
