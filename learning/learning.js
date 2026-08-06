@@ -1,8 +1,9 @@
 import { LearningRepo } from './learning-repo.js';
 import { MaterialsRepo } from './materials-repo.js';
 import { isoWeekKey, summarizeWeek } from './weekly.js';
+import { localDateStr } from '../shared/local-date.js';
 
-const todayStr = () => new Date().toISOString().slice(0, 10);
+const todayStr = localDateStr;
 let cache = [];
 
 initTabs();
@@ -30,7 +31,25 @@ function initLogTab() {
   document.getElementById('learn-form').addEventListener('submit', onAddOne);
   document.getElementById('learn-import').addEventListener('click', onImport);
   document.getElementById('learn-filter').addEventListener('change', renderList);
+  const quickBtn = document.getElementById('quick-save');
+  if (quickBtn) quickBtn.addEventListener('click', onQuickAdd);
   refresh().catch(() => {});
+}
+
+async function onQuickAdd() {
+  const status = document.getElementById('quick-status');
+  const title = document.getElementById('quick-title').value.trim();
+  if (!title) { status.textContent = 'Write one line first.'; return; }
+  const raw = parseFloat(document.getElementById('quick-minutes').value);
+  try {
+    await LearningRepo.quickAdd({ title, minutes: Number.isFinite(raw) ? raw : null });
+    document.getElementById('quick-title').value = '';
+    document.getElementById('quick-minutes').value = '';
+    status.textContent = 'Added.';
+    refresh();
+  } catch (err) {
+    status.textContent = `Could not add (${err.message}).`;
+  }
 }
 
 async function refresh() {
@@ -104,7 +123,19 @@ function renderList() {
     left.textContent = `${s.learnedOn} · ${s.title}${s.project ? ` → ${s.project}` : ''}`;
     const right = document.createElement('span');
     right.textContent = VERDICT_LABEL[s.verdict] || s.verdict;
-    li.append(left, right);
+    const verdictSelect = document.createElement('select');
+    for (const v of ['considering', 'applied', 'rejected']) {
+      const opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = v;
+      if (v === s.verdict) opt.selected = true;
+      verdictSelect.appendChild(opt);
+    }
+    verdictSelect.addEventListener('change', async (e) => {
+      await LearningRepo.update(s.id, { verdict: e.target.value });
+      refresh();
+    });
+    li.append(left, right, verdictSelect);
     list.appendChild(li);
   }
 }

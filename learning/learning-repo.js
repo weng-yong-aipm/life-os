@@ -1,5 +1,6 @@
 import { getClient, cloudEnabled } from '../db.js';
 import { demoMode, fixtures } from '../demo.js';
+import { localDateStr } from '../shared/local-date.js';
 
 function toRow(s) {
   return {
@@ -48,6 +49,40 @@ export const LearningRepo = {
     const { data, error } = await c.from('learning_sessions').insert(rows).select();
     if (error) throw error;
     return data.map(toRow);
+  },
+
+  /* One-field daily takeaway. The full form stays for detailed entries; this
+   * exists so the daily habit costs one line of typing, not eight fields. */
+  async quickAdd({ title, minutes }) {
+    const c = await getClient();
+    if (!c) throw new Error('Learning needs cloud sync — enable Supabase in config.js.');
+    const { data: { user } } = await c.auth.getUser();
+    if (!user) throw new Error('Not signed in.');
+    const { data, error } = await c.from('learning_sessions').insert({
+      user_id: user.id,
+      learned_on: localDateStr(),
+      title,
+      minutes: minutes ?? null,
+      source: 'manual',
+      verdict: 'considering',
+    }).select().single();
+    if (error) throw error;
+    return data;
+  },
+
+  /* The only way a row leaves 'considering'. Without this the whole
+   * learning->goals link is unreachable: linkAppliedToGoals filters on
+   * verdict === 'applied' and nothing could ever set it. */
+  async update(id, { verdict, project }) {
+    const c = await getClient();
+    if (!c) throw new Error('Learning needs cloud sync — enable Supabase in config.js.');
+    const patch = {};
+    if (verdict !== undefined) patch.verdict = verdict;
+    if (project !== undefined) patch.project = project || null;
+    const { data, error } = await c.from('learning_sessions')
+      .update(patch).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
   },
 
   async list() {
