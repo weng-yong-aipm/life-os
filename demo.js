@@ -45,11 +45,11 @@ export const fixtures = {
   ],
 
   expenses: [
-    { id: 'e1', spentOn: iso(-1), amount: 18.5, category: 'food', note: 'lunch' },
-    { id: 'e2', spentOn: iso(-2), amount: 240, category: 'transport', note: 'monthly pass' },
-    { id: 'e3', spentOn: iso(-4), amount: 62.9, category: 'groceries', note: null },
-    { id: 'e4', spentOn: iso(-6), amount: 35, category: 'food', note: 'dinner' },
-    { id: 'e5', spentOn: iso(-9), amount: 129, category: 'utilities', note: 'internet' },
+    { id: 'e1', spentAt: iso(-1), amount: 18.5, category: 'food', note: 'lunch' },
+    { id: 'e2', spentAt: iso(-2), amount: 240, category: 'transport', note: 'monthly pass' },
+    { id: 'e3', spentAt: iso(-4), amount: 62.9, category: 'groceries', note: null },
+    { id: 'e4', spentAt: iso(-6), amount: 35, category: 'food', note: 'dinner' },
+    { id: 'e5', spentAt: iso(-9), amount: 129, category: 'utilities', note: 'internet' },
   ],
 
   workHours: [
@@ -59,15 +59,23 @@ export const fixtures = {
   ],
 
   meals: [
-    { id: 'm1', eatenOn: iso(0), name: 'Oats + banana', calories: 380, protein: 14 },
-    { id: 'm2', eatenOn: iso(0), name: 'Chicken rice', calories: 620, protein: 38 },
-    { id: 'm3', eatenOn: iso(0), name: 'Greek yogurt', calories: 150, protein: 15 },
+    { id: 'm1', eatenOn: iso(0), name: 'Oats + banana', calories: 380, proteinG: 14, carbsG: 58, fatG: 8 },
+    { id: 'm2', eatenOn: iso(0), name: 'Chicken rice', calories: 620, proteinG: 38, carbsG: 72, fatG: 16 },
+    { id: 'm3', eatenOn: iso(0), name: 'Greek yogurt', calories: 150, proteinG: 15, carbsG: 9, fatG: 4 },
   ],
 
   workouts: [
-    { id: 'k1', doneOn: iso(-1), kind: 'run', minutes: 32, calories: 310 },
-    { id: 'k2', doneOn: iso(-3), kind: 'strength', minutes: 45, calories: 260 },
-    { id: 'k3', doneOn: iso(-5), kind: 'walk', minutes: 50, calories: 180 },
+    { id: 'k1', doneAt: iso(-1), exercise: 'run', durationMin: 32, caloriesBurned: 310 },
+    { id: 'k2', doneAt: iso(-3), exercise: 'strength', durationMin: 45, caloriesBurned: 260 },
+    { id: 'k3', doneAt: iso(-5), exercise: 'walk', durationMin: 50, caloriesBurned: 180 },
+  ],
+
+  sleep: [
+    { id: 's1', sleptOn: iso(-1), bedAt: `${iso(-2)}T23:15:00.000Z`, wakeAt: `${iso(-1)}T07:05:00.000Z`, durationMin: 470, quality: 4, note: null, source: 'manual' },
+    { id: 's2', sleptOn: iso(-2), bedAt: `${iso(-3)}T23:40:00.000Z`, wakeAt: `${iso(-2)}T06:50:00.000Z`, durationMin: 430, quality: 3, note: 'woke up once', source: 'manual' },
+    { id: 's3', sleptOn: iso(-3), bedAt: `${iso(-4)}T22:50:00.000Z`, wakeAt: `${iso(-3)}T06:30:00.000Z`, durationMin: 460, quality: 4, note: null, source: 'manual' },
+    { id: 's4', sleptOn: iso(-4), bedAt: `${iso(-5)}T00:10:00.000Z`, wakeAt: `${iso(-4)}T07:20:00.000Z`, durationMin: 430, quality: 3, note: null, source: 'manual' },
+    { id: 's5', sleptOn: iso(-5), bedAt: `${iso(-6)}T23:00:00.000Z`, wakeAt: `${iso(-5)}T06:45:00.000Z`, durationMin: 465, quality: 5, note: 'felt great', source: 'manual' },
   ],
 };
 

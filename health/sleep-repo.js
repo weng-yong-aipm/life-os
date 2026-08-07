@@ -1,5 +1,5 @@
 import { getClient } from '../db.js';
-import { demoMode } from '../demo.js';
+import { demoMode, fixtures } from '../demo.js';
 import { localDateStr } from '../shared/local-date.js';
 
 const toRow = (r) => ({
@@ -38,7 +38,7 @@ export const SleepRepo = {
   },
 
   async listRecent(limit = 7) {
-    if (demoMode) return [];
+    if (demoMode) return fixtures.sleep.slice(0, limit);
     const c = await getClient();
     if (!c) return [];
     const { data, error } = await c.from('sleep')
