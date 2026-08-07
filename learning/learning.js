@@ -2,6 +2,7 @@ import { LearningRepo } from './learning-repo.js';
 import { MaterialsRepo } from './materials-repo.js';
 import { isoWeekKey, summarizeWeek } from './weekly.js';
 import { localDateStr } from '../shared/local-date.js';
+import { activateTabFromHash } from '../shared/tab-hash.js';
 
 const todayStr = localDateStr;
 let cache = [];
@@ -22,6 +23,7 @@ function initTabs() {
       if (btn.dataset.tab === 'materials') refreshMaterials();
     });
   });
+  activateTabFromHash();
 }
 
 /* ---------------- Log tab ---------------- */

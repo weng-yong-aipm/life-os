@@ -6,6 +6,7 @@ import { portionScale, dailyTotals, compareToTarget } from './nutrition.js';
 import { estimateBurn } from './calories-burned.js';
 import { sleepDurationMin, formatDuration, averageDuration, sleepTimestamps } from './sleep.js';
 import { localDateStr } from '../shared/local-date.js';
+import { activateTabFromHash } from '../shared/tab-hash.js';
 
 const todayStr = () => localDateStr();
 /* parseFloat(x) || null turns a legitimate 0 into null — a zero-calorie drink
@@ -38,11 +39,7 @@ function initTabs() {
    * The tabs are click-driven, so without this the fragment only scrolls and
    * the default Meal panel stays active — the shortcut looks like it works
    * and silently lands on the wrong tab. */
-  const fromHash = location.hash.replace('#', '');
-  if (fromHash) {
-    const btn = document.querySelector(`.tab-btn[data-tab="${CSS.escape(fromHash.replace(/^tab-/, ''))}"]`);
-    if (btn) btn.click();
-  }
+  activateTabFromHash();
 }
 
 /* ---------------- Meal tab ---------------- */
