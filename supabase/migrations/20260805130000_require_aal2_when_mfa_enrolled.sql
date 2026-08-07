@@ -42,7 +42,8 @@ begin
     'receipts', 'receipt_items', 'pay_settings', 'work_hours',
     'expenses', 'meals', 'workouts',
     'learning_sessions', 'learning_materials', 'career_goals',
-    'feed_items', 'improvements', 'capture_queue', 'sleep', 'user_settings'
+    'feed_items', 'improvements', 'capture_queue', 'sleep', 'user_settings',
+    'mesocycles', 'sessions', 'session_exercises', 'sets'
   ]
   loop
     -- 'sleep' is added here before the migration that creates it
