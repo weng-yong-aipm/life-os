@@ -7,6 +7,7 @@ const MODULES = [
   { key: 'home', href: 'index.html', ico: '🏠', name: 'Home' },
   { key: 'finance', href: 'finance/index.html', ico: '🧾', name: 'Finance' },
   { key: 'health', href: 'health/index.html', ico: '🍳', name: 'Health' },
+  { key: 'training', href: 'training/index.html', ico: '🏋️', name: 'Training' },
   { key: 'career', href: 'career/index.html', ico: '💼', name: 'Goals & Certs' },
   { key: 'learning', href: 'learning/index.html', ico: '📚', name: 'Learning' },
   { key: 'capture', href: 'capture/index.html', ico: '📥', name: 'Capture' },
@@ -15,7 +16,7 @@ const MODULES = [
   { key: 'improve', href: 'improve/index.html', ico: '✨', name: 'Improve' },
 ];
 
-const DIRS = ['finance', 'health', 'career', 'learning', 'capture', 'feed', 'plan', 'improve'];
+const DIRS = ['finance', 'health', 'training', 'career', 'learning', 'capture', 'feed', 'plan', 'improve'];
 const inSub = DIRS.some((d) => location.pathname.includes(`/${d}/`));
 const base = inSub ? '../' : './';
 const activeKey = DIRS.find((d) => location.pathname.includes(`/${d}/`)) || 'home';

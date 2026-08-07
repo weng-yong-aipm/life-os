@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>life-os — Training</title>
+<link rel="stylesheet" href="../ui.css?v=7" />
+<link rel="stylesheet" href="../shell.css?v=1" />
+<script type="module" src="../shell.js"></script>
+<link rel="manifest" href="../manifest.webmanifest" />
+<style>
+  /* Exercise catalogue picker (phase 3a). Set logging and blocks are later
+   * phases — this page is desk-side browsing only, so verbosity is fine. */
+  .ex-list { max-height: 62vh; overflow-y: auto; }
+  .ex-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .7rem .9rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    font-family: var(--body);
+    font-size: .9rem;
+    font-weight: 500;
+    text-align: left;
+    color: var(--ink);
+    cursor: pointer;
+    min-height: 44px;
+    transition: border-color .15s, background .15s;
+  }
+  .ex-item:hover { border-color: var(--line-strong); background: var(--surface-2); filter: none; }
+  .ex-item.active { border-color: var(--accent); background: var(--accent-wash); }
+  .ex-item .muscle {
+    font-family: var(--mono); font-size: .68rem; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .04em; white-space: nowrap;
+  }
+  #ex-list:empty::after {
+    content: 'No exercises match.';
+    display: block;
+    color: var(--muted);
+    font-size: .85rem;
+    padding: .5rem .1rem;
+  }
+
+  .ex-detail { display: flex; flex-direction: column; gap: 1rem; }
+  .ex-detail h3 { font-family: var(--display); font-size: 1.3rem; margin: 0; letter-spacing: -.01em; }
+  .ex-meta { display: flex; flex-wrap: wrap; gap: .5rem; }
+
+  .ex-media img {
+    width: 100%; max-width: 360px; display: block;
+    border: 1px solid var(--line); border-radius: var(--radius);
+  }
+  .ex-credit { font-size: .72rem; color: var(--muted); margin: .4rem 0 0; }
+  .ex-credit a { color: var(--muted); }
+
+  /* The no-image state, ~60% of exercises: a deliberate composition, not a
+   * hole where a picture should be — readable instructions plus one outbound
+   * link, visually complete on its own. */
+  .ex-media-empty {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 1.15rem;
+    box-shadow: var(--shadow);
+  }
+  .ex-media-empty .ex-instructions { font-size: 1.02rem; line-height: 1.6; color: var(--ink); margin: 0 0 1rem; }
+  .ex-demo-link {
+    display: inline-flex; align-items: center; gap: .4rem;
+    font-weight: 600; font-size: .9rem; color: var(--accent-ink); text-decoration: none;
+  }
+  .ex-demo-link:hover { text-decoration: underline; }
+
+  .ex-instructions-list { padding-left: 1.2rem; margin: 0; font-size: .9rem; color: var(--ink); line-height: 1.55; }
+  .ex-instructions-list li { margin-bottom: .4rem; }
+</style>
+</head>
+<body>
+<header>
+  <a href="../index.html">&larr; life-os</a>
+  <h1>Training</h1>
+  <a href="./credits.html">Image credits</a>
+</header>
+
+<p class="hint">Exercise catalogue for phase 3a — pick an exercise, see how it's performed. Set logging
+  and training blocks are later phases.</p>
+
+<div class="cols">
+  <div class="col">
+    <h2>Exercises</h2>
+    <label>Search <input type="text" id="ex-search" placeholder="e.g. squat" /></label>
+    <label>Muscle group
+      <select id="ex-muscle"><option value="">All muscles</option></select>
+    </label>
+    <p id="ex-count" class="hint"></p>
+    <ul id="ex-list" class="ex-list"></ul>
+  </div>
+
+  <div class="col">
+    <h2>Detail</h2>
+    <div id="ex-detail" class="ex-detail">
+      <p class="hint">Pick an exercise on the left to see how it's performed.</p>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="catalogue-ui.js"></script>
+</body>
+</html>

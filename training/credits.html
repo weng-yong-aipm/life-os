@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>life-os — Training — Image credits</title>
+<link rel="stylesheet" href="../ui.css?v=7" />
+<link rel="stylesheet" href="../shell.css?v=1" />
+<script type="module" src="../shell.js"></script>
+<link rel="manifest" href="../manifest.webmanifest" />
+<style>
+  .credit-row {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 1rem;
+    font-family: var(--body); font-size: .88rem;
+  }
+  .credit-row .license { font-family: var(--mono); font-size: .72rem; color: var(--muted); white-space: nowrap; }
+  #credits-list:empty::after {
+    content: 'No images have been mirrored yet — run tools/mirror-exercise-images.mjs.';
+    display: block; color: var(--muted); font-size: .85rem;
+  }
+</style>
+</head>
+<body>
+<header>
+  <a href="./index.html">&larr; Training</a>
+  <h1>Image credits</h1>
+</header>
+
+<p class="hint">Every demo image in the training catalogue is mirrored from
+  <a href="https://wger.de/" target="_blank" rel="noopener noreferrer">wger.de</a>, filtered to
+  <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener noreferrer">CC0</a>,
+  <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC-BY-4</a>, or
+  <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener noreferrer">CC-BY-SA-3</a>
+  images. Attribution below is required by those licences, not a nicety. Where wger did not record an author,
+  attribution falls back to "wger.de contributors".</p>
+
+<h2>Licences in use</h2>
+<ul id="license-summary"></ul>
+
+<h2>Per-image credits</h2>
+<ul id="credits-list"></ul>
+
+<script type="module" src="credits-ui.js"></script>
+</body>
+</html>
