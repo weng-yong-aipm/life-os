@@ -137,6 +137,10 @@ function renderList() {
         refresh();
       } catch (err) {
         document.getElementById('learn-status').textContent = `Could not update (${err.message}).`;
+        /* A native <select> already shows the newly-picked option before the
+         * await resolves, so without this the dropdown keeps displaying a
+         * verdict that was never persisted — and verdict is the publish gate. */
+        e.target.value = s.verdict;
       }
     });
     li.append(left, right, verdictSelect);
