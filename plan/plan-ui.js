@@ -12,36 +12,24 @@ import {
   progress,
   weekProgress,
 } from './plan.js';
+import { PlanRepo } from './plan-repo.js';
+import { localDateStr } from '../shared/local-date.js';
 
-const KEY = 'lifeos.plan.done';
-const today = new Date().toISOString().slice(0, 10);
-
-function load() {
-  try {
-    return new Set(JSON.parse(localStorage.getItem(KEY) || '[]'));
-  } catch {
-    return new Set();
-  }
-}
-
-function save(done) {
-  try {
-    localStorage.setItem(KEY, JSON.stringify([...done]));
-  } catch {
-    /* private browsing — the checklist still works for this session */
-  }
-}
+/* Local date, not UTC: east of UTC, toISOString().slice(0,10) reports
+ * yesterday for the whole early morning — which would put you in the wrong
+ * plan week around a Monday boundary. */
+const today = localDateStr();
 
 /* Tasks marked done in the data file are pre-checked on first load, so the plan opens
  * reflecting what has actually shipped rather than an empty slate. */
 function seed(done) {
-  if (localStorage.getItem(KEY) !== null) return done;
+  if (PlanRepo.hasLocal() || done.size) return done;
   WEEKS.flatMap((w) => w.tasks).filter((t) => t.done).forEach((t) => done.add(t.id));
-  save(done);
   return done;
 }
 
-let done = seed(load());
+let done = new Set();
+const save = (d) => { PlanRepo.save(d); };
 
 function el(tag, cls, text) {
   const n = document.createElement(tag);
@@ -150,10 +138,18 @@ function render() {
 document.getElementById('plan-filter').addEventListener('change', renderWeeks);
 document.getElementById('plan-reset').addEventListener('click', () => {
   if (!confirm('Clear every tick and start the plan from scratch?')) return;
-  localStorage.removeItem(KEY);
   done = seed(new Set());
+  save(done);
   render();
 });
 
 renderGates();
 render();
+
+/* The cloud copy arrives after the first paint, so the page is usable
+ * immediately from localStorage and then reconciles. load() unions the two, so
+ * a tick made offline on this device is never dropped by the cloud copy. */
+PlanRepo.load().then((d) => {
+  done = seed(d);
+  render();
+});
