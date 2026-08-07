@@ -14,7 +14,7 @@
 
   #plan-status:empty { display: none; }
 
-  #plan-active[hidden], #plan-builder[hidden] { display: none; }
+  #plan-active[hidden], #plan-builder[hidden], #plan-edit[hidden] { display: none; }
 
   #plan-active .goal-card { margin-bottom: 1.5rem; }
   .active-meta {
@@ -59,6 +59,23 @@
   }
 
   #create-block-btn { margin-top: .8rem; }
+
+  /* Edit-active-block view (phase 3d). Reuses .session-card/.exercise-row/
+   * .exercise-add from the builder above — same visual language, this is
+   * just the same shapes with existing data prefilled and extra controls. */
+  #edit-status:empty { display: none; }
+  .edit-session-heading {
+    font-family: var(--mono); font-size: .78rem; color: var(--muted);
+    margin: 0 0 .5rem;
+  }
+  .edit-exercise-row { flex-wrap: wrap; row-gap: .4rem; }
+  .edit-swap-input { flex: 1 1 10rem; min-width: 8rem; margin: 0; }
+  .edit-swap-scope { flex: 0 0 auto; width: auto; margin: 0; }
+  #edit-sessions:empty::after {
+    content: 'No upcoming sessions in this block.';
+    display: block; color: var(--muted); font-size: .85rem; padding: .3rem .1rem;
+  }
+  #edit-close-btn { margin-top: .8rem; }
 </style>
 </head>
 <body>
@@ -85,8 +102,20 @@
       <span id="active-weeks"></span>
       <span id="active-start"></span>
     </p>
+    <button type="button" id="edit-block-btn">Edit block</button>
     <button type="button" id="end-block-btn">End block</button>
   </div>
+</section>
+
+<section id="plan-edit" hidden>
+  <h2>Edit block</h2>
+  <p class="hint">Changes apply from today onward — a session dated before today is never touched.
+    Swapping or removing an exercise that already has logged sets keeps that row and its sets
+    exactly as recorded, and starts a fresh row alongside it; an exercise with zero sets logged
+    edits in place.</p>
+  <p id="edit-status" class="hint"></p>
+  <div id="edit-sessions"></div>
+  <button type="button" id="edit-close-btn">Close editor</button>
 </section>
 
 <section id="plan-builder">

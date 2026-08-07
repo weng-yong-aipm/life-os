@@ -6,6 +6,7 @@ import {
   buildProgressionSeries,
   seedTargets,
   sessionForDate,
+  requiresSupersede,
 } from './strength.js';
 
 test('resolveCursor with an empty plan returns session_complete', () => {
@@ -177,4 +178,18 @@ test('sessionForDate carries the correct weekNo into week 2', () => {
 
 test('sessionForDate returns null once weeks have elapsed', () => {
   assert.equal(sessionForDate(MESO, '2026-08-17'), null); // Monday, week 3 — block is only 2 weeks
+});
+
+test('requiresSupersede is false with zero logged sets', () => {
+  assert.equal(requiresSupersede(0), false);
+});
+
+test('requiresSupersede is true with any logged sets', () => {
+  assert.equal(requiresSupersede(1), true);
+  assert.equal(requiresSupersede(5), true);
+});
+
+test('requiresSupersede treats missing/undefined/null as zero', () => {
+  assert.equal(requiresSupersede(undefined), false);
+  assert.equal(requiresSupersede(null), false);
 });

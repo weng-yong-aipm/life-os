@@ -167,6 +167,21 @@ export function seedTargets(goal) {
 }
 
 /**
+ * Whether editing a session_exercise must SUPERSEDE (preserve the original
+ * row and its sets, mark it aside, insert a fresh row) rather than mutate it
+ * in place. The rule: any logged set makes an edit destructive, because
+ * overwriting exercise_name/position on that row would silently rewrite
+ * what was actually lifted. Zero logged sets means there is no history to
+ * lose, so the edit is free.
+ *
+ * @param loggedSetCount number of sets already logged against the row
+ * @returns true when the caller must supersede instead of updating in place
+ */
+export function requiresSupersede(loggedSetCount) {
+  return (loggedSetCount || 0) > 0;
+}
+
+/**
  * Which planned session (if any) of a mesocycle falls on `date`, given only
  * the block's startDate/weeks and its weekday-keyed session list. Pure
  * calendar arithmetic — no clock, no I/O.

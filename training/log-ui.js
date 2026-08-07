@@ -16,11 +16,16 @@ async function init() {
     fetch('../health/data/exercises.json').then((r) => r.json()).catch(() => []),
     fetch('../health/data/exercise-media.json').then((r) => r.json()).catch(() => []),
   ]);
+  document.getElementById('log-exercise-list').innerHTML =
+    exercises.map((x) => `<option value="${x.name}"></option>`).join('');
 
   document.getElementById('log-btn').addEventListener('click', onLog);
   document.getElementById('log-skip-btn').addEventListener('click', onSkip);
   document.getElementById('log-undo-btn').addEventListener('click', onUndo);
   document.getElementById('log-finish-btn').addEventListener('click', onFinish);
+  document.getElementById('log-swap-toggle').addEventListener('click', toggleSwapPanel);
+  document.getElementById('log-swap-cancel').addEventListener('click', () => hideSwapPanel());
+  document.getElementById('log-swap-confirm').addEventListener('click', onSwap);
 
   await refresh();
 }
@@ -43,6 +48,17 @@ async function refresh() {
   renderPlan().catch(() => {});
 }
 
+function hideSwapPanel() {
+  document.getElementById('log-swap-panel').hidden = true;
+  document.getElementById('log-swap-input').value = '';
+}
+
+function toggleSwapPanel() {
+  const panel = document.getElementById('log-swap-panel');
+  panel.hidden = !panel.hidden;
+  if (!panel.hidden) document.getElementById('log-swap-input').focus();
+}
+
 function render() {
   const card = document.getElementById('log-card');
   const empty = document.getElementById('log-empty');
@@ -50,6 +66,7 @@ function render() {
   card.hidden = true;
   empty.hidden = true;
   complete.hidden = true;
+  hideSwapPanel();
   if (!current) return;
 
   if (current.sessionComplete) {
@@ -188,6 +205,27 @@ async function onFinish() {
     status.textContent = 'Workout saved.';
   } catch (err) {
     status.textContent = `Could not finish (${err.message}).`;
+  }
+}
+
+/* Quick swap — this session only. The most common mid-workout edit
+ * (machine occupied, elbow hurts) and the reason it lives here rather than
+ * only in the planner: it must not cost a trip off the gym screen. Reuses
+ * strength-repo's swapExercise, the same "this session only" scope the
+ * planner's editor offers, one exercise at a time. */
+async function onSwap() {
+  const status = document.getElementById('log-status');
+  const newName = document.getElementById('log-swap-input').value.trim();
+  if (!newName || !current || current.sessionComplete || current.empty) return;
+
+  try {
+    await StrengthRepo.swapExercise(current.sessionExerciseId, newName);
+    current = await StrengthRepo.getCurrentSet();
+    status.textContent = 'Exercise swapped.';
+    render();
+    renderPlan().catch(() => {});
+  } catch (err) {
+    status.textContent = `Could not swap (${err.message}).`;
   }
 }
 

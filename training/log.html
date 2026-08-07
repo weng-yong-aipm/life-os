@@ -34,6 +34,8 @@
     margin-bottom: 1.5rem;
   }
 
+  .log-header { display: flex; align-items: flex-start; justify-content: space-between; gap: .6rem; }
+
   #log-exercise-name {
     font-family: var(--display);
     font-weight: 700;
@@ -41,6 +43,37 @@
     letter-spacing: -.02em;
     margin: 0;
   }
+
+  /* Quick swap (phase 3d) — mid-workout, "the machine is occupied" is the
+   * most common edit and must not require a trip to the planner. This
+   * session only: strength-repo's swapExercise. */
+  #log-swap-toggle {
+    flex: 0 0 auto;
+    width: auto;
+    min-height: 44px;
+    padding: .3rem .8rem;
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--muted);
+    background: var(--surface-2);
+    border-color: var(--line);
+  }
+  #log-swap-toggle:hover { background: var(--surface); filter: none; }
+
+  #log-swap-panel[hidden] { display: none; }
+  #log-swap-panel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: center;
+  }
+  #log-swap-panel input[type="text"] {
+    flex: 1 1 10rem;
+    min-width: 8rem;
+    margin: 0;
+  }
+  #log-swap-panel button { flex: 0 0 auto; width: auto; min-height: 44px; }
+  #log-swap-cancel { color: var(--muted); background: var(--surface); border-color: var(--line-strong); }
 
   #log-media { border-radius: var(--radius-sm); overflow: hidden; }
   #log-media img { width: 100%; max-height: 220px; object-fit: cover; display: block; border-radius: var(--radius-sm); }
@@ -168,7 +201,15 @@
 <p id="log-status" class="hint"></p>
 
 <div id="log-card" hidden>
-  <h2 id="log-exercise-name"></h2>
+  <div class="log-header">
+    <h2 id="log-exercise-name"></h2>
+    <button type="button" id="log-swap-toggle">Swap exercise</button>
+  </div>
+  <div id="log-swap-panel" hidden>
+    <input type="text" id="log-swap-input" list="log-exercise-list" placeholder="swap to…" aria-label="Swap to exercise" />
+    <button type="button" id="log-swap-confirm">Confirm</button>
+    <button type="button" id="log-swap-cancel">Cancel</button>
+  </div>
   <div id="log-media"></div>
 
   <hr class="log-divider" />
@@ -206,6 +247,8 @@
 
 <h2>Today's plan</h2>
 <ul id="log-plan-list"></ul>
+
+<datalist id="log-exercise-list"></datalist>
 
 <script type="module" src="log-ui.js"></script>
 </body>

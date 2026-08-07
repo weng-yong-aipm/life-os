@@ -10,7 +10,9 @@
 
 import { getClient } from '../db.js';
 import { localDateStr } from '../shared/local-date.js';
-import { resolveCursor, suggestSet, buildProgressionSeries, sessionForDate } from './strength.js';
+import {
+  resolveCursor, suggestSet, buildProgressionSeries, sessionForDate, requiresSupersede,
+} from './strength.js';
 
 function toPlan(exercises) {
   return exercises.map((e) => ({
@@ -162,6 +164,42 @@ async function historyFor(c, exerciseName, beforeDate) {
     if (rows && rows.length) return rows;
   }
   return [];
+}
+
+/* How many sets are already logged against one session_exercise — the one
+ * fact requiresSupersede needs to decide whether an edit is free or must
+ * preserve the row. */
+async function countLoggedSets(c, sessionExerciseId) {
+  const { count, error } = await c.from('sets')
+    .select('id', { count: 'exact', head: true })
+    .eq('session_exercise_id', sessionExerciseId);
+  if (error) throw error;
+  return count || 0;
+}
+
+/* Preserves `row` (and its logged sets) exactly as-is, marking it aside via
+ * the existing `skipped_reason` column — resolveCursor already treats any
+ * truthy skipped_reason as "skip this exercise", so this alone removes it
+ * from the cursor without touching a single `sets` row. Then inserts a
+ * fresh session_exercise in its place, same session/position/targets, new
+ * name. Used by both swapExercise and replaceExerciseInBlock so the two
+ * share one definition of "supersede". */
+async function supersede(c, row, newExerciseName, note) {
+  const { error: e1 } = await c.from('session_exercises')
+    .update({ skipped_reason: note })
+    .eq('id', row.id);
+  if (e1) throw e1;
+
+  const { error: e2 } = await c.from('session_exercises').insert({
+    session_id: row.session_id,
+    exercise_name: newExerciseName,
+    position: row.position,
+    target_sets: row.target_sets,
+    target_rep_low: row.target_rep_low,
+    target_rep_high: row.target_rep_high,
+    target_rir: row.target_rir,
+  });
+  if (e2) throw e2;
 }
 
 export const StrengthRepo = {
@@ -368,6 +406,11 @@ export const StrengthRepo = {
    * nothing here, so cloneForwardIfEmpty (3b's fallback) still fires for
    * them exactly as before.
    *
+   * Eager materialisation used to mean editing a started block had no
+   * lever besides end-and-recreate (which threw away logged history) — see
+   * swapExercise/replaceExerciseInBlock/updateTargets/addExerciseToSession/
+   * removeExerciseFromSession (phase 3d, below) for the fix.
+   *
    * @param plan { name, goal, weeks, startDate, sessions: [{ dayOfWeek, name,
    *   exercises: [{ exerciseName, targetSets, targetRepLow, targetRepHigh, targetRir }] }] }
    */
@@ -462,5 +505,183 @@ export const StrengthRepo = {
 
     const { error: e2 } = await c.from('mesocycles').update({ status: 'ended' }).eq('id', id);
     if (e2) throw e2;
+  },
+
+  /* Block editing (phase 3d) — the gap createMesocycle's own comment flags:
+   * once a block starts there was no way to change it short of
+   * end-and-recreate, which throws away logged history. The rule that makes
+   * these five methods safe: a session_exercise with logged sets is never
+   * destructively rewritten. requiresSupersede (strength.js, pure) decides
+   * per row; supersede() (above) is the shared implementation. Editing a row
+   * with zero sets is a plain UPDATE/DELETE. */
+
+  /* This session only. Renames in place when the row has no sets yet;
+   * otherwise supersedes — the original row (and its logged sets) stays,
+   * a fresh row with the new name takes over the remaining target sets at
+   * the same position, so the next getCurrentSet() call finds it exactly
+   * where the old exercise was. */
+  async swapExercise(sessionExerciseId, newExerciseName) {
+    const { c } = await requireClient();
+    const { data: row, error: e1 } = await c.from('session_exercises')
+      .select('*').eq('id', sessionExerciseId).single();
+    if (e1) throw e1;
+
+    const loggedCount = await countLoggedSets(c, sessionExerciseId);
+    if (!requiresSupersede(loggedCount)) {
+      const { error } = await c.from('session_exercises')
+        .update({ exercise_name: newExerciseName }).eq('id', sessionExerciseId);
+      if (error) throw error;
+      return;
+    }
+
+    await supersede(c, row, newExerciseName, `superseded: swapped to ${newExerciseName}`);
+  },
+
+  /* Future sessions too. `fromDate` defaults to today so yesterday's record
+   * is never touched — a session dated today IS included, so a same-day
+   * partly-logged session still gets edited: its already-logged sets stay
+   * on the (now superseded) original row, and a fresh row picks up the
+   * remaining sets for today, same as swapExercise. Applied one matching
+   * row at a time — a block has at most a few dozen sessions, so this
+   * favours the same free/supersede logic as swapExercise over a bulk
+   * query that would have to duplicate it. */
+  async replaceExerciseInBlock(mesocycleId, oldName, newName, { fromDate } = {}) {
+    const { c } = await requireClient();
+    const from = fromDate || localDateStr();
+
+    const { data: sessions, error: e1 } = await c.from('sessions').select('id')
+      .eq('mesocycle_id', mesocycleId)
+      .gte('date', from);
+    if (e1) throw e1;
+    if (!sessions || !sessions.length) return;
+
+    const { data: rows, error: e2 } = await c.from('session_exercises').select('*')
+      .in('session_id', sessions.map((s) => s.id))
+      .eq('exercise_name', oldName);
+    if (e2) throw e2;
+
+    for (const row of rows || []) {
+      const loggedCount = await countLoggedSets(c, row.id);
+      if (!requiresSupersede(loggedCount)) {
+        const { error } = await c.from('session_exercises')
+          .update({ exercise_name: newName }).eq('id', row.id);
+        if (error) throw error;
+        continue;
+      }
+      await supersede(c, row, newName, `superseded: swapped to ${newName}`);
+    }
+  },
+
+  /* Targets only — never touches `sets`, so it is safe to update in place
+   * regardless of how many sets are already logged. A lowered target_sets
+   * below the logged count just means resolveCursor stops asking for more;
+   * the sets already logged stay exactly as recorded. */
+  async updateTargets(sessionExerciseId, targets = {}) {
+    const { c } = await requireClient();
+    const patch = {};
+    if (targets.targetSets !== undefined) patch.target_sets = targets.targetSets;
+    if (targets.targetRepLow !== undefined) patch.target_rep_low = targets.targetRepLow;
+    if (targets.targetRepHigh !== undefined) patch.target_rep_high = targets.targetRepHigh;
+    if (targets.targetRir !== undefined) patch.target_rir = targets.targetRir;
+
+    const { error } = await c.from('session_exercises').update(patch).eq('id', sessionExerciseId);
+    if (error) throw error;
+  },
+
+  /* Appends to one session, positioned after whatever is already there. No
+   * supersede case — a brand-new row has no history to preserve. */
+  async addExerciseToSession(sessionId, exerciseName, targets = {}) {
+    const { c } = await requireClient();
+    const { data: last, error: e1 } = await c.from('session_exercises')
+      .select('position').eq('session_id', sessionId)
+      .order('position', { ascending: false }).limit(1).maybeSingle();
+    if (e1) throw e1;
+
+    const { data, error: e2 } = await c.from('session_exercises').insert({
+      session_id: sessionId,
+      exercise_name: exerciseName,
+      position: (last?.position || 0) + 1,
+      target_sets: targets.targetSets ?? null,
+      target_rep_low: targets.targetRepLow ?? null,
+      target_rep_high: targets.targetRepHigh ?? null,
+      target_rir: targets.targetRir ?? null,
+    }).select().single();
+    if (e2) throw e2;
+    return data;
+  },
+
+  /* Deletes outright when the row has no logged sets — nothing to lose.
+   * Otherwise marks it aside the same way supersede() does, minus the
+   * replacement row: the exercise simply stops being asked for by
+   * resolveCursor, and its logged sets stay exactly as recorded. */
+  async removeExerciseFromSession(sessionExerciseId) {
+    const { c } = await requireClient();
+    const loggedCount = await countLoggedSets(c, sessionExerciseId);
+
+    if (!requiresSupersede(loggedCount)) {
+      const { error } = await c.from('session_exercises').delete().eq('id', sessionExerciseId);
+      if (error) throw error;
+      return;
+    }
+
+    const { error } = await c.from('session_exercises')
+      .update({ skipped_reason: 'superseded: removed' })
+      .eq('id', sessionExerciseId);
+    if (error) throw error;
+  },
+
+  /* Read-only: sessions of a block from `fromDate` (default today) onward,
+   * each with its exercise rows and how many sets are already logged
+   * against each — everything the "edit active block" view needs to
+   * render and to warn before a swap/remove would supersede. Degrades to
+   * [], same convention as getSessionPlan/listMesocycles. */
+  async getUpcomingSessions(mesocycleId, { fromDate } = {}) {
+    const c = await getClient();
+    if (!c) return [];
+    const { data: { user } } = await c.auth.getUser();
+    if (!user) return [];
+
+    const from = fromDate || localDateStr();
+    const { data: sessions, error: e1 } = await c.from('sessions').select('*')
+      .eq('mesocycle_id', mesocycleId)
+      .gte('date', from)
+      .order('date', { ascending: true });
+    if (e1) throw e1;
+    if (!sessions || !sessions.length) return [];
+
+    const sessionIds = sessions.map((s) => s.id);
+    const { data: exercises, error: e2 } = await c.from('session_exercises').select('*')
+      .in('session_id', sessionIds)
+      .order('position', { ascending: true });
+    if (e2) throw e2;
+
+    const exIds = (exercises || []).map((e) => e.id);
+    let sets = [];
+    if (exIds.length) {
+      const { data, error: e3 } = await c.from('sets').select('session_exercise_id')
+        .in('session_exercise_id', exIds);
+      if (e3) throw e3;
+      sets = data || [];
+    }
+    const loggedCounts = new Map();
+    for (const s of sets) {
+      loggedCounts.set(s.session_exercise_id, (loggedCounts.get(s.session_exercise_id) || 0) + 1);
+    }
+
+    return sessions.map((s) => ({
+      sessionId: s.id,
+      date: s.date,
+      name: s.name,
+      exercises: (exercises || []).filter((e) => e.session_id === s.id).map((e) => ({
+        sessionExerciseId: e.id,
+        exerciseName: e.exercise_name,
+        targetSets: e.target_sets,
+        targetRepLow: e.target_rep_low,
+        targetRepHigh: e.target_rep_high,
+        targetRir: e.target_rir,
+        skippedReason: e.skipped_reason,
+        setsLogged: loggedCounts.get(e.id) || 0,
+      })),
+    }));
   },
 };
