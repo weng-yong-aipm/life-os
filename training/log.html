@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>life-os — Log a set</title>
+<link rel="stylesheet" href="../ui.css?v=7" />
+<link rel="stylesheet" href="../shell.css?v=1" />
+<script type="module" src="../shell.js"></script>
+<link rel="manifest" href="../manifest.webmanifest" />
+<style>
+  /* Gym screen (phase 3b). One thumb, one hand, 60-90s between sets — see
+   * docs/superpowers/specs/2026-08-06-training-module-design.md §4b. Every
+   * colour/radius/shadow below is a var(--…) token; there is no fixed
+   * palette because gym lighting swings from blown-out to dim and the
+   * light/dark tokens already handle that. */
+
+  #log-status:empty { display: none; }
+
+  /* #log-card/#log-empty/#log-complete each set their own `display`, which
+   * otherwise outranks the UA [hidden] rule on specificity (an id beats a
+   * bare attribute selector) and the element stays visible. */
+  #log-card[hidden], #log-empty[hidden], #log-complete[hidden] { display: none; }
+
+  #log-card {
+    display: flex;
+    flex-direction: column;
+    gap: .9rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lift);
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+
+  #log-exercise-name {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(1.5rem, 6vw, 2rem);
+    letter-spacing: -.02em;
+    margin: 0;
+  }
+
+  #log-media { border-radius: var(--radius-sm); overflow: hidden; }
+  #log-media img { width: 100%; max-height: 220px; object-fit: cover; display: block; border-radius: var(--radius-sm); }
+  #log-media.log-media-empty {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: .9rem 1rem;
+  }
+  .log-no-media-text { font-size: .92rem; line-height: 1.55; color: var(--ink); margin: 0 0 .6rem; }
+  .log-demo-link {
+    display: inline-flex; align-items: center; gap: .4rem;
+    font-weight: 600; font-size: .88rem; color: var(--accent-ink); text-decoration: none;
+  }
+  .log-demo-link:hover { text-decoration: underline; }
+
+  .log-divider { height: 1px; background: var(--line); border: none; margin: 0; }
+
+  .log-position {
+    display: flex; align-items: baseline; justify-content: space-between;
+    font-family: var(--mono); font-size: .82rem; color: var(--muted); letter-spacing: .02em;
+  }
+  #log-set-counter { font-weight: 600; color: var(--ink); }
+
+  .log-numbers {
+    display: flex; align-items: center; justify-content: center; gap: .6rem;
+  }
+  .log-numbers input {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: clamp(2.4rem, 14vw, 3.4rem);
+    text-align: center;
+    width: 6.5ch;
+    min-height: 3.4rem;
+    padding: .2rem 0;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--ink);
+  }
+  .log-numbers input:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-wash);
+    background: var(--paper);
+  }
+  #log-reps { width: 3.5ch; }
+  .log-x { font-family: var(--mono); font-size: 1.6rem; color: var(--muted); }
+
+  #log-last-time { text-align: center; font-size: .88rem; color: var(--muted); margin: -.4rem 0 0; }
+
+  #log-btn {
+    min-height: 76px;
+    font-size: 1.25rem;
+    font-weight: 700;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  /* Deliberately separated from #log-btn — a fat-fingered Undo after Log is
+   * the one mistake that destroys real data, so Skip/Undo sit in their own
+   * row below a visible gap, at opposite ends, smaller than Log. */
+  .log-secondary {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: .5rem;
+  }
+  .log-secondary button {
+    min-height: 44px;
+    flex: 0 0 auto;
+    padding: .6rem 1.1rem;
+    font-size: .88rem;
+    background: var(--surface);
+    color: var(--muted);
+    border-color: var(--line-strong);
+  }
+  .log-secondary button:hover { background: var(--surface-2); filter: none; }
+  #log-undo-btn { color: var(--over); }
+
+  #log-empty, #log-complete {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 1.5rem;
+    text-align: center;
+    color: var(--muted);
+    margin-bottom: 1.5rem;
+  }
+  #log-complete p { color: var(--ink); font-weight: 600; margin: 0 0 1rem; }
+
+  .plan-item {
+    width: 100%;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: .75rem;
+    padding: .65rem .9rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    font-family: var(--body);
+    font-size: .88rem;
+    font-weight: 500;
+    text-align: left;
+    color: var(--ink);
+    cursor: pointer;
+    min-height: 44px;
+  }
+  .plan-item:hover { border-color: var(--line-strong); background: var(--surface-2); filter: none; }
+  .plan-item.active { border-color: var(--accent); background: var(--accent-wash); }
+  .plan-count { font-family: var(--mono); font-size: .74rem; color: var(--muted); white-space: nowrap; }
+  #log-plan-list:empty::after {
+    content: 'No plan yet for today.';
+    display: block; color: var(--muted); font-size: .85rem; padding: .5rem .1rem;
+  }
+</style>
+</head>
+<body>
+<header>
+  <a href="../index.html">&larr; life-os</a>
+  <h1>Log a set</h1>
+  <a href="./index.html">Catalogue</a>
+</header>
+
+<p id="log-status" class="hint"></p>
+
+<div id="log-card" hidden>
+  <h2 id="log-exercise-name"></h2>
+  <div id="log-media"></div>
+
+  <hr class="log-divider" />
+
+  <div class="log-position">
+    <span id="log-set-counter"></span>
+    <span id="log-rir"></span>
+  </div>
+
+  <div class="log-numbers">
+    <input type="number" id="log-weight" inputmode="decimal" step="0.5" aria-label="Weight, kg" />
+    <span class="log-x">&times;</span>
+    <input type="number" id="log-reps" inputmode="numeric" aria-label="Reps" />
+  </div>
+  <p id="log-last-time"></p>
+
+  <hr class="log-divider" />
+
+  <button type="button" id="log-btn">Log set</button>
+  <div class="log-secondary">
+    <button type="button" id="log-skip-btn">Skip</button>
+    <button type="button" id="log-undo-btn">Undo</button>
+  </div>
+</div>
+
+<div id="log-empty" hidden>
+  <p>No plan for today yet. Once a previous session has logged exercises, this screen carries them
+    forward automatically.</p>
+</div>
+
+<div id="log-complete" hidden>
+  <p>Workout complete.</p>
+  <button type="button" id="log-finish-btn">Finish workout</button>
+</div>
+
+<h2>Today's plan</h2>
+<ul id="log-plan-list"></ul>
+
+<script type="module" src="log-ui.js"></script>
+</body>
+</html>
