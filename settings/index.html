@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>life-os — Settings</title>
+<link rel="stylesheet" href="../ui.css?v=5" />
+<link rel="stylesheet" href="../shell.css?v=1" />
+<script type="module" src="../shell.js"></script>
+<link rel="manifest" href="../manifest.webmanifest" />
+<style>
+  #hidden-modules-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: .5rem; }
+  #hidden-modules-form label { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: .6rem .8rem; margin: 0; }
+</style>
+</head>
+<body>
+<header>
+  <a href="../index.html">&larr; life-os</a>
+  <h1>Settings</h1>
+</header>
+
+<section>
+  <div class="cols">
+    <div class="col">
+      <h2>Targets</h2>
+      <form id="settings-form">
+        <label>Daily calorie target (kcal) <input type="number" id="settings-kcal-target" required /></label>
+        <label>Daily protein target (g) <input type="number" id="settings-protein-target" required /></label>
+        <label>Body weight (kg) <input type="number" step="0.5" id="settings-body-weight" required /></label>
+        <label>Sleep target (min) <input type="number" id="settings-sleep-target" required /></label>
+        <button type="submit">Save settings</button>
+      </form>
+      <div id="settings-status"></div>
+    </div>
+
+    <div class="col">
+      <h2>Hide modules</h2>
+      <p class="hint">Hidden modules disappear from the home hub. They stay reachable directly by URL.</p>
+      <form id="hidden-modules-form">
+        <label><input type="checkbox" id="hide-finance" /> Finance</label>
+        <label><input type="checkbox" id="hide-health" /> Health</label>
+        <label><input type="checkbox" id="hide-plan" /> Plan</label>
+        <label><input type="checkbox" id="hide-career" /> Goals & Certs</label>
+        <label><input type="checkbox" id="hide-learning" /> Learning</label>
+        <label><input type="checkbox" id="hide-feed" /> Feed</label>
+        <label><input type="checkbox" id="hide-improve" /> Improve</label>
+        <label><input type="checkbox" id="hide-invest" /> Invest</label>
+        <button type="submit">Save hidden modules</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<script type="module" src="settings-ui.js"></script>
+</body>
+</html>

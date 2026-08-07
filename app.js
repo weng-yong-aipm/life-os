@@ -1,5 +1,7 @@
 import { Auth, cloudEnabled } from './auth.js';
 import { demoMode } from './demo.js';
+import { SettingsRepo } from './settings/settings-repo.js';
+import { isHidden } from './settings/settings.js';
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./service-worker.js');
@@ -41,12 +43,14 @@ async function refreshAuthUI() {
     statusEl.textContent = 'demo';
     hideAll();
     hubGrid.hidden = false;
+    await applyModuleVisibility();
     return;
   }
   if (!cloudEnabled) {
     statusEl.textContent = 'local mode (no Supabase config yet)';
     hideAll();
     hubGrid.hidden = false;
+    await applyModuleVisibility();
     return;
   }
   const session = await Auth.session();
@@ -77,7 +81,23 @@ async function refreshAuthUI() {
   hideAll();
   hubGrid.hidden = false;
   signoutBtn.hidden = false;
+  await applyModuleVisibility();
   await refreshMfaBox();
+}
+
+/* Hide any hub card whose module id is in the signed-in user's
+ * hidden_modules. Additive only — never restructures the grid, and the
+ * Settings card carries no data-module so it can never be a target here. */
+async function applyModuleVisibility() {
+  let settings;
+  try {
+    settings = await SettingsRepo.get();
+  } catch {
+    return;
+  }
+  document.querySelectorAll('.hub-card[data-module]').forEach((card) => {
+    card.hidden = isHidden(settings, card.dataset.module);
+  });
 }
 
 async function refreshMfaBox() {

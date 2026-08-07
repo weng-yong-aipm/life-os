@@ -1,6 +1,7 @@
 import { MealsRepo } from './meals-repo.js';
 import { WorkoutsRepo } from './workouts-repo.js';
 import { SleepRepo } from './sleep-repo.js';
+import { SettingsRepo } from '../settings/settings-repo.js';
 import { portionScale, dailyTotals, compareToTarget } from './nutrition.js';
 import { estimateBurn } from './calories-burned.js';
 import { sleepDurationMin, formatDuration, averageDuration, sleepTimestamps } from './sleep.js';
@@ -51,6 +52,12 @@ async function initMealTab() {
   foods = await fetch('./data/foods.json').then((r) => r.json()).catch(() => []);
   const dl = document.getElementById('food-list');
   dl.innerHTML = foods.map((f) => `<option value="${f.name}"></option>`).join('');
+
+  /* The HTML `value="2000"` is only a pre-JS fallback — the real, persisted
+   * target lives in user_settings and overrides it here. Without this, the
+   * daily target silently resets to 2000 on every page load. */
+  const settings = await SettingsRepo.get().catch(() => null);
+  if (settings) document.getElementById('meal-target').value = settings.dailyKcalTarget;
 
   document.getElementById('food-add').addEventListener('click', onAddFood);
   document.getElementById('meal-photo-form').addEventListener('submit', onEstimatePhoto);
@@ -161,6 +168,13 @@ async function initWorkoutTab() {
   exercises = await fetch('./data/exercises.json').then((r) => r.json()).catch(() => []);
   const dl = document.getElementById('exercise-list');
   dl.innerHTML = exercises.map((x) => `<option value="${x.name}"></option>`).join('');
+
+  /* Same fix as the meal target: the HTML `value="70"` is a pre-JS fallback
+   * only. Without loading the persisted bodyweight here, every calorie-burn
+   * estimate is silently computed at a fixed 70kg (see calories-burned.js). */
+  const settings = await SettingsRepo.get().catch(() => null);
+  if (settings) document.getElementById('body-weight').value = settings.bodyWeightKg;
+
   document.getElementById('workout-form').addEventListener('submit', onLogWorkout);
   refreshWeek().catch(() => {});
 }
