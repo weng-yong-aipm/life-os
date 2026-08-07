@@ -1,6 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveCursor, suggestSet, buildProgressionSeries } from './strength.js';
+import {
+  resolveCursor,
+  suggestSet,
+  buildProgressionSeries,
+  seedTargets,
+  sessionForDate,
+} from './strength.js';
 
 test('resolveCursor with an empty plan returns session_complete', () => {
   assert.equal(resolveCursor([], []), 'session_complete');
@@ -124,4 +130,51 @@ test('buildProgressionSeries picks the best (highest volume) set per session and
   );
   assert.equal(points[1].weightKg, 50);
   assert.equal(points[1].reps, 8);
+});
+
+test('seedTargets returns the same schema with different numbers per goal', () => {
+  const hyper = seedTargets('hypertrophy');
+  const fat = seedTargets('fatloss');
+  assert.deepEqual(Object.keys(hyper).sort(), Object.keys(fat).sort());
+  assert.equal(hyper.repLow, 6);
+  assert.equal(hyper.repHigh, 12);
+  assert.ok(hyper.rir >= 1 && hyper.rir <= 3);
+  assert.ok(fat.sets < hyper.sets, 'fat-loss trims volume relative to hypertrophy');
+});
+
+test('seedTargets falls back to hypertrophy for an unknown goal', () => {
+  assert.deepEqual(seedTargets('bogus'), seedTargets('hypertrophy'));
+});
+
+const MESO = {
+  startDate: '2026-08-03', // a Monday
+  weeks: 2,
+  sessions: [
+    { dayOfWeek: 1, name: 'Push', exercises: [{ exerciseName: 'Bench Press' }] },
+    { dayOfWeek: 4, name: 'Pull', exercises: [{ exerciseName: 'Barbell Row' }] },
+  ],
+};
+
+test('sessionForDate returns null before the block starts', () => {
+  assert.equal(sessionForDate(MESO, '2026-08-02'), null);
+});
+
+test('sessionForDate returns null on a rest day', () => {
+  assert.equal(sessionForDate(MESO, '2026-08-05'), null); // Wednesday, no planned session
+});
+
+test('sessionForDate returns the planned session on a matching weekday', () => {
+  const session = sessionForDate(MESO, '2026-08-03'); // Monday, week 1
+  assert.equal(session.name, 'Push');
+  assert.equal(session.weekNo, 1);
+});
+
+test('sessionForDate carries the correct weekNo into week 2', () => {
+  const session = sessionForDate(MESO, '2026-08-13'); // Thursday, week 2
+  assert.equal(session.name, 'Pull');
+  assert.equal(session.weekNo, 2);
+});
+
+test('sessionForDate returns null once weeks have elapsed', () => {
+  assert.equal(sessionForDate(MESO, '2026-08-17'), null); // Monday, week 3 — block is only 2 weeks
 });

@@ -11,6 +11,22 @@ const LOAD_INCREMENT_KG = 2.5;
 const PLATEAU_WINDOW = 3;
 const PLATEAU_TOLERANCE = 0.02;
 
+/* Default per-exercise targets by block goal. Same four fields either way —
+ * only the numbers move. Hypertrophy trains closer to failure across more
+ * sets; fat-loss trims sets (volume) while holding the same rep range and
+ * RIR, so suggestSet's existing progression logic still decides load
+ * increases the same way for both — nothing here or in the repo branches on
+ * goal beyond this one lookup. */
+const SEED_TARGETS = {
+  hypertrophy: { sets: 3, repLow: 6, repHigh: 12, rir: 2 },
+  fatloss: { sets: 2, repLow: 6, repHigh: 12, rir: 2 },
+};
+
+function parseDateUTC(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return Date.UTC(y, m - 1, d);
+}
+
 function volumeOf(set) {
   return (set.weightKg || 0) * (set.reps || 0);
 }
@@ -137,4 +153,40 @@ export function buildProgressionSeries(sets) {
   }
 
   return points;
+}
+
+/**
+ * Default rep/RIR/set targets for a block goal. Pure lookup, unknown goal
+ * falls back to hypertrophy rather than returning undefined.
+ *
+ * @param goal 'hypertrophy' | 'fatloss'
+ * @returns { sets, repLow, repHigh, rir }
+ */
+export function seedTargets(goal) {
+  return SEED_TARGETS[goal] || SEED_TARGETS.hypertrophy;
+}
+
+/**
+ * Which planned session (if any) of a mesocycle falls on `date`, given only
+ * the block's startDate/weeks and its weekday-keyed session list. Pure
+ * calendar arithmetic — no clock, no I/O.
+ *
+ * @param mesocycle { startDate: 'YYYY-MM-DD', weeks, sessions: [{ dayOfWeek (0=Sun..6=Sat), ... }] }
+ * @param date 'YYYY-MM-DD'
+ * @returns the matching session from `mesocycle.sessions`, plus `weekNo`, or
+ *   null when `date` is before the block starts, after `weeks` weeks have
+ *   elapsed, or falls on a weekday with no planned session (a rest day).
+ */
+export function sessionForDate(mesocycle, date) {
+  const daysSinceStart = Math.round(
+    (parseDateUTC(date) - parseDateUTC(mesocycle.startDate)) / 86400000
+  );
+  if (daysSinceStart < 0) return null;
+
+  const weekNo = Math.floor(daysSinceStart / 7) + 1;
+  if (weekNo > mesocycle.weeks) return null;
+
+  const dayOfWeek = new Date(parseDateUTC(date)).getUTCDay();
+  const session = (mesocycle.sessions || []).find((s) => s.dayOfWeek === dayOfWeek);
+  return session ? { ...session, weekNo } : null;
 }

@@ -10,7 +10,7 @@
 
 import { getClient } from '../db.js';
 import { localDateStr } from '../shared/local-date.js';
-import { resolveCursor, suggestSet, buildProgressionSeries } from './strength.js';
+import { resolveCursor, suggestSet, buildProgressionSeries, sessionForDate } from './strength.js';
 
 function toPlan(exercises) {
   return exercises.map((e) => ({
@@ -52,6 +52,13 @@ function bestOf(sets) {
     if (v === bv && (s.weight_kg || 0) > (best.weight_kg || 0)) return s;
     return best;
   }, null);
+}
+
+function addDaysStr(dateStr, days) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().slice(0, 10);
 }
 
 async function requireClient() {
@@ -344,5 +351,116 @@ export const StrengthRepo = {
     if (since) points = points.filter((p) => p.date >= since);
 
     return buildProgressionSeries(points);
+  },
+
+  /* Materialises the whole block up front: a `sessions` row (with its real
+   * calendar date) plus `session_exercises` for every day, across every
+   * week, that sessionForDate matches to a planned session. Rest days get
+   * nothing.
+   *
+   * This is EAGER, not lazy, and deliberately so: `sessions.date` is
+   * NOT NULL, so a lazy "session template with no date yet" doesn't fit
+   * this schema without inventing a second, parallel plan store. Eager
+   * materialisation needs no new table — the sessions/session_exercises
+   * rows this writes ARE the plan, and getCurrentSet() (3b, unchanged)
+   * already finds "today" by querying `sessions` for today's date, so a
+   * plan day just works the moment its row exists. Off-plan days still get
+   * nothing here, so cloneForwardIfEmpty (3b's fallback) still fires for
+   * them exactly as before.
+   *
+   * @param plan { name, goal, weeks, startDate, sessions: [{ dayOfWeek, name,
+   *   exercises: [{ exerciseName, targetSets, targetRepLow, targetRepHigh, targetRir }] }] }
+   */
+  async createMesocycle(plan) {
+    const { c, user } = await requireClient();
+    const { data: meso, error: e1 } = await c.from('mesocycles').insert({
+      user_id: user.id,
+      name: plan.name,
+      goal: plan.goal,
+      weeks: plan.weeks,
+      start_date: plan.startDate,
+      status: 'active',
+    }).select().single();
+    if (e1) throw e1;
+
+    const template = { startDate: plan.startDate, weeks: plan.weeks, sessions: plan.sessions };
+    for (let offset = 0; offset < plan.weeks * 7; offset++) {
+      const date = addDaysStr(plan.startDate, offset);
+      const planned = sessionForDate(template, date);
+      if (!planned) continue;
+
+      const { data: session, error: e2 } = await c.from('sessions').insert({
+        user_id: user.id,
+        mesocycle_id: meso.id,
+        week_no: planned.weekNo,
+        day_no: planned.dayOfWeek,
+        name: planned.name,
+        date,
+        status: 'planned',
+      }).select().single();
+      if (e2) throw e2;
+
+      const rows = (planned.exercises || []).map((ex, i) => ({
+        session_id: session.id,
+        exercise_name: ex.exerciseName,
+        position: i + 1,
+        target_sets: ex.targetSets,
+        target_rep_low: ex.targetRepLow,
+        target_rep_high: ex.targetRepHigh,
+        target_rir: ex.targetRir,
+      }));
+      if (rows.length) {
+        const { error: e3 } = await c.from('session_exercises').insert(rows);
+        if (e3) throw e3;
+      }
+    }
+
+    return meso;
+  },
+
+  /* Read-only. Degrades to [] rather than throwing when there is no client
+   * or no session, matching getSessionPlan/getProgression's convention. */
+  async listMesocycles() {
+    const c = await getClient();
+    if (!c) return [];
+    const { data: { user } } = await c.auth.getUser();
+    if (!user) return [];
+
+    const { data, error } = await c.from('mesocycles').select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+
+  /* Read-only. Degrades to null, same convention as listMesocycles. */
+  async getActiveMesocycle() {
+    const c = await getClient();
+    if (!c) return null;
+    const { data: { user } } = await c.auth.getUser();
+    if (!user) return null;
+
+    const { data, error } = await c.from('mesocycles').select('*')
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+
+  /* Marks the block ended and drops its still-`planned` sessions strictly
+   * after today, so tomorrow stops finding this block's rows. Today's
+   * session (and anything in the past) is never touched, planned or not —
+   * that would risk deleting a session with real logged sets under it. */
+  async endMesocycle(id) {
+    const { c } = await requireClient();
+    const { error: e1 } = await c.from('sessions').delete()
+      .eq('mesocycle_id', id)
+      .eq('status', 'planned')
+      .gt('date', localDateStr());
+    if (e1) throw e1;
+
+    const { error: e2 } = await c.from('mesocycles').update({ status: 'ended' }).eq('id', id);
+    if (e2) throw e2;
   },
 };

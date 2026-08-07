@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>life-os — Plan a block</title>
+<link rel="stylesheet" href="../ui.css?v=7" />
+<link rel="stylesheet" href="../shell.css?v=1" />
+<script type="module" src="../shell.js"></script>
+<link rel="manifest" href="../manifest.webmanifest" />
+<style>
+  /* Training block (mesocycle) builder, phase 3c. Desk-side only — nobody
+   * builds a block standing in a gym — so verbosity here is fine. */
+
+  #plan-status:empty { display: none; }
+
+  #plan-active[hidden], #plan-builder[hidden] { display: none; }
+
+  #plan-active .goal-card { margin-bottom: 1.5rem; }
+  .active-meta {
+    display: flex; gap: 1rem; flex-wrap: wrap;
+    font-family: var(--mono); font-size: .78rem; color: var(--muted);
+  }
+
+  .session-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: .8rem .9rem;
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    margin-bottom: .8rem;
+  }
+  .session-top { display: flex; align-items: center; gap: .6rem; }
+  .session-top select { flex: 0 0 auto; width: auto; margin: 0; }
+  .session-top input[type="text"] { flex: 1 1 auto; margin: 0; }
+  .session-top .remove-item { flex: 0 0 auto; width: auto; }
+
+  .session-exercises { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .4rem; }
+  .session-exercises:empty::after {
+    content: 'No exercises yet.';
+    display: block; color: var(--muted); font-size: .8rem;
+  }
+  .exercise-row { display: flex; align-items: center; gap: .5rem; font-size: .85rem; }
+  .exercise-row-name { flex: 1 1 auto; font-weight: 500; color: var(--ink); }
+  .exercise-row input[type="number"] {
+    width: 4.2ch; min-height: 36px; padding: .2rem .3rem; text-align: center; margin: 0;
+  }
+  .exercise-row .remove-item { flex: 0 0 auto; width: auto; }
+
+  .exercise-add { display: flex; gap: .5rem; align-items: center; }
+  .exercise-add input[type="text"] { flex: 1 1 auto; margin: 0; }
+  .exercise-add button { flex: 0 0 auto; width: auto; }
+
+  #session-list:empty::after {
+    content: 'No sessions yet — add one below.';
+    display: block; color: var(--muted); font-size: .85rem; padding: .3rem .1rem;
+  }
+
+  #create-block-btn { margin-top: .8rem; }
+</style>
+</head>
+<body>
+<header>
+  <a href="../index.html">&larr; life-os</a>
+  <h1>Plan a block</h1>
+  <a href="./index.html">Catalogue</a>
+</header>
+
+<p class="hint">Build a mesocycle — a hypertrophy or fat-loss block, run for a number of weeks, with
+  sessions on chosen weekdays and target sets/reps/RIR per exercise. Once a block is active, the
+  gym screen finds each day's planned session automatically.</p>
+
+<p id="plan-status" class="hint"></p>
+
+<section id="plan-active" hidden>
+  <h2>Active block</h2>
+  <div class="goal-card">
+    <div class="goal-top">
+      <span class="goal-title" id="active-name"></span>
+      <span class="chip" id="active-goal"></span>
+    </div>
+    <p class="active-meta">
+      <span id="active-weeks"></span>
+      <span id="active-start"></span>
+    </p>
+    <button type="button" id="end-block-btn">End block</button>
+  </div>
+</section>
+
+<section id="plan-builder">
+  <h2>Create a block</h2>
+  <label>Name <input type="text" id="block-name" placeholder="e.g. Hypertrophy — August" /></label>
+  <label>Goal
+    <select id="block-goal">
+      <option value="hypertrophy">Hypertrophy</option>
+      <option value="fatloss">Fat loss</option>
+    </select>
+  </label>
+  <label>Weeks <input type="number" id="block-weeks" value="6" min="1" /></label>
+  <label>Start date <input type="date" id="block-start" /></label>
+
+  <h3>Sessions</h3>
+  <div id="session-list"></div>
+  <button type="button" id="add-session-btn">+ Add session</button>
+
+  <button type="button" id="create-block-btn">Create block</button>
+</section>
+
+<datalist id="plan-exercise-list"></datalist>
+
+<script type="module" src="plan-ui.js"></script>
+</body>
+</html>
