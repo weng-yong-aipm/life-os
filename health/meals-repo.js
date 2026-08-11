@@ -13,6 +13,31 @@ function toRow(m) {
   };
 }
 
+/* Pull the Edge Function's own error out of the response body.
+ *
+ * supabase-js reports every non-2xx from a function as the same sentence —
+ * "Edge Function returned a non-2xx status code" — and keeps the real reason in
+ * error.context, the undrained Response. estimate-meal answers with
+ * {error, detail}, so without this the one line the user sees on their phone
+ * names no cause at all: a missing ANTHROPIC_API_KEY, a rejected image and an
+ * Anthropic outage are indistinguishable, and the only recourse looks like
+ * typing the calories in by hand. */
+export async function functionErrorText(error) {
+  const generic = error?.message || 'estimate-meal failed';
+  const res = error?.context;
+  if (!res || typeof res.text !== 'function') return generic;
+  try {
+    const raw = (await res.text()).trim();
+    if (!raw) return generic;
+    let body;
+    try { body = JSON.parse(raw); } catch { return `${generic} — ${raw.slice(0, 200)}`; }
+    const parts = [body.error, body.detail].filter(Boolean).map(String);
+    return parts.length ? parts.join(' — ').slice(0, 300) : generic;
+  } catch {
+    return generic; // body already consumed or unreadable — the sentence is all we have
+  }
+}
+
 export const MealsRepo = {
   async estimatePhoto(file) {
     const c = await getClient();
@@ -28,7 +53,11 @@ export const MealsRepo = {
       body: { storagePath, mediaType: file.type },
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
-    if (error) { const e = new Error(error.message || 'estimate-meal failed'); e.storagePath = storagePath; throw e; }
+    if (error) {
+      const e = new Error(await functionErrorText(error));
+      e.storagePath = storagePath;
+      throw e;
+    }
     return { storagePath, extracted: data };
   },
 

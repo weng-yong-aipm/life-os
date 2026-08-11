@@ -58,6 +58,12 @@ async function initMealTab() {
 
   document.getElementById('food-add').addEventListener('click', onAddFood);
   document.getElementById('meal-photo-form').addEventListener('submit', onEstimatePhoto);
+  /* Picking a photo runs the estimate straight away. On a phone the camera
+   * roll closes and you are already looking at the form, so a second tap on
+   * "Estimate" is pure friction — and it reads as if nothing happened. The
+   * submit handler stays for the no-JS-change path (keyboard Enter, and a
+   * retry after a failed estimate without re-picking the file). */
+  document.getElementById('meal-photo').addEventListener('change', onEstimatePhoto);
   document.getElementById('meal-save').addEventListener('click', onSaveMeal);
   document.getElementById('meal-target').addEventListener('input', refreshDaily);
   refreshDaily().catch(() => {});
