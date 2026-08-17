@@ -45,6 +45,20 @@ export function buildTailIndex(roots, readdir) {
   return tails;
 }
 
+/* The other direction. A retired entry whose dead references are alive again is
+ * a retirement that may no longer hold — and a stale `retired` marker hides a
+ * fact that has become true, which is exactly how an exemption list turns into
+ * the hole it was built to close. Checked, never auto-reversed. */
+export function reviveCandidates({ entries, roots, exists, findByTail }) {
+  const out = [];
+  for (const { name, src } of entries) {
+    if (readStatus(src) !== 'retired') continue;
+    const backAlive = extractPaths(src).filter((ref) => classify(ref, { roots, exists, findByTail }).state !== 'missing');
+    if (backAlive.length) out.push({ name, backAlive });
+  }
+  return out;
+}
+
 export function buildReport({ entries, roots, exists, findByTail, today }) {
   let refs = 0;
   const nominations = [];
@@ -65,6 +79,7 @@ export function buildReport({ entries, roots, exists, findByTail, today }) {
     }
     if (dead.length) nominations.push({ name, dead });
   }
+  const revive = reviveCandidates({ entries, roots, exists, findByTail });
   const lines = [
     `# Memory rot — nominations ${today}`,
     '',
@@ -83,10 +98,16 @@ export function buildReport({ entries, roots, exists, findByTail, today }) {
     '',
     ...tails.map((t) => `- ${t}`),
     '',
+    '## 待重审（已淘汰，但引用又活了）',
+    '',
+    'Not automatic — decide each one. A retirement that no longer holds hides a fact that has become true again.',
+    '',
+    ...revive.map(({ name, backAlive }) => `- ${name} — ${backAlive.join(', ')}`),
+    '',
   ];
   return {
     markdown: lines.join('\n'),
-    counts: { entries: entries.length, refs, nominations: nominations.length, tails: tails.length, deadOccurrences, deadUnique: deadUnique.size },
+    counts: { entries: entries.length, refs, nominations: nominations.length, tails: tails.length, deadOccurrences, deadUnique: deadUnique.size, revive: revive.length },
   };
 }
 

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildReport, assertRootsPresent, buildTailIndex } from './scan-memory-rot.mjs';
+import { buildReport, assertRootsPresent, buildTailIndex, reviveCandidates } from './scan-memory-rot.mjs';
 
 const ROOTS = ['/r/ai-chatops', '/r/cs-flow-builder'];
 const FS = {
@@ -95,4 +95,34 @@ test('buildTailIndex skips node_modules', () => {
   const idx = buildTailIndex(['/r'], (d) => tree[d] ?? []);
   assert.equal(idx.get('evil.js'), undefined);
   assert.equal(idx.get('src/real.js'), '/r/src/real.js');
+});
+
+/* ── The other direction: a retirement that may no longer hold ──────────────────────────────── */
+
+test('THE property: a retired entry whose references came back is flagged for re-review', () => {
+  const retired = { name: 'c', src: '---\nname: c\nstatus: retired\n---\n\nsee `src/store/useStore.js`\n' };
+  const got = reviveCandidates({ entries: [retired], roots: ROOTS, exists });
+  assert.deepEqual(got, [{ name: 'c', backAlive: ['src/store/useStore.js'] }]);
+});
+
+test('a retired entry whose references are still dead is not flagged', () => {
+  const retired = { name: 'd', src: '---\nname: d\nstatus: retired\n---\n\nsee `scripts/still-gone.mjs`\n' };
+  assert.deepEqual(reviveCandidates({ entries: [retired], roots: ROOTS, exists }), []);
+});
+
+test('an active entry is never a revive candidate', () => {
+  assert.deepEqual(reviveCandidates({ entries: [entry('e', 'see `src/store/useStore.js`')], roots: ROOTS, exists }), []);
+});
+
+test('a retired entry whose short path now resolves by tail is also a revive candidate', () => {
+  const retired = { name: 'g', src: '---\nname: g\nstatus: retired\n---\n\nsee `src/api.js`\n' };
+  const got = reviveCandidates({ entries: [retired], roots: ROOTS, exists, findByTail: (r) => (r === 'src/api.js' ? '/r/ai-chatops/cockpit-react/src/api.js' : null) });
+  assert.deepEqual(got, [{ name: 'g', backAlive: ['src/api.js'] }]);
+});
+
+test('revive candidates appear in the report under their own heading', () => {
+  const retired = { name: 'c', src: '---\nname: c\nstatus: retired\n---\n\nsee `src/store/useStore.js`\n' };
+  const r = buildReport({ entries: [retired], roots: ROOTS, exists, today: '2026-08-17' });
+  assert.match(r.markdown, /## 待重审/);
+  assert.match(r.markdown, /src\/store\/useStore\.js/);
 });
