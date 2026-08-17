@@ -1,8 +1,8 @@
 # Memory rot — nominations 2026-08-17
 
 entries read: 294
-references resolved: 787
-dead references: 59 occurrences · 55 unique
+references resolved: 786
+dead references: 58 occurrences · 54 unique
 nominations (every reference dead): 4
 path fixes (entry still holds): 22
 short paths (not rot): 13
@@ -21,7 +21,7 @@ Delete any row you disagree with, then run `node tools/apply-retirement.mjs <thi
 
 NOT retirement candidates. Fix the path in the entry, or leave it — these entries are still true.
 
-- ai-chatops-progress — docs/10-frontend-chatbot-widget.md, src/lib/gemini/client.js, src/modules/docmap.js, src/modules/finddocs.js, src/modules/incident.js, src/modules/investigate.js  (6/92 引用失效)
+- ai-chatops-progress — docs/10-frontend-chatbot-widget.md, src/lib/gemini/client.js, src/modules/docmap.js, src/modules/finddocs.js, src/modules/incident.js  (5/91 引用失效)
 - ai-chatops-stale-branches — src/modules/perms.js, src/server/routes/permissions.js  (2/9 引用失效)
 - ai-livechat-docs — scripts/mirror-doc10-only.mjs  (1/4 引用失效)
 - chatbot-answer-key — scripts/eval/chatbot-answer-key.json, scripts/eval/chatbot-key-eval.mjs, scripts/eval/chatbot-key-extract.mjs, scripts/eval/chatbot-key-widget-sample.mjs, scripts/eval/chatbot-ui-walk.mjs  (5/6 引用失效)
