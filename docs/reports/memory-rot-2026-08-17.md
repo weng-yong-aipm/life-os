@@ -1,11 +1,11 @@
 # Memory rot — nominations 2026-08-17
 
-entries read: 294
-references resolved: 786
+entries read: 297
+references resolved: 790
 dead references: 58 occurrences · 54 unique
 nominations (every reference dead): 4
 path fixes (entry still holds): 22
-short paths (not rot): 13
+short paths (not rot): 14
 roots searched: /Users/wengyong/AI-chatops, /Users/wengyong/life-os, /Users/wengyong/cs-flow-builder, /Users/wengyong/chatbot, /Users/wengyong/PersonalNotes, /Users/wengyong/Documents/DevNotes
 
 ## 建议淘汰（该条目的引用全部失效）
@@ -55,6 +55,7 @@ NOT retirement candidates. Fix the path in the entry, or leave it — these entr
 - hosting-blockers-closed-2026-08-08 — config/env.js → /Users/wengyong/AI-chatops/src/config/env.js
 - hotfix-cascade-review-fix-2026-07-06 — config/env.js → /Users/wengyong/AI-chatops/src/config/env.js
 - meegle-story-fields — config/meegle.js → /Users/wengyong/AI-chatops/src/config/meegle.js
+- memory-lifecycle-tooling-2026-08-17 — src/api.js → /Users/wengyong/AI-chatops/cockpit-react/src/api.js
 - module-eval-gap-analysis — config/meegle.js → /Users/wengyong/AI-chatops/src/config/meegle.js
 - pm-console-testing-page-2026-07-09 — src/testing.css → /Users/wengyong/AI-chatops/cockpit-react/src/testing.css
 - standup-accountability-agent — config/meegle.js → /Users/wengyong/AI-chatops/src/config/meegle.js
