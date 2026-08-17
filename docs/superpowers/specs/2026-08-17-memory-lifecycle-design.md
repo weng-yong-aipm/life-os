@@ -81,7 +81,7 @@ were observed in the real corpus:
 - **env flags** — `RELEASE_ENABLED`, `MEEGLE_READONLY`
 - **git branches** — `feat/…`, `work/…`
 
-Each resolves to `alive`, `missing`, or `ambiguous` against a **root map**:
+Each resolves to `alive`, `missing`, `ambiguous`, or `tail` against a **root map**:
 
 ```
 ~/AI-chatops  ~/life-os  ~/cs-flow-builder  ~/chatbot  ~/PersonalNotes  ~/Documents/DevNotes
@@ -90,10 +90,19 @@ Each resolves to `alive`, `missing`, or `ambiguous` against a **root map**:
 `ambiguous` means the same relative path exists under more than one root. Ambiguous is **not**
 evidence of rot and never contributes to a nomination.
 
-The root map is the load-bearing part of this sub-project, not a configuration detail. Without it
-the detector produces the 88-flag list above, a third of which is wrong; two weeks of that and
-nobody reads the report, which is the failure mode where a governance list becomes the new blind
-spot.
+`tail` means the path as written is not found, but a real file's trailing segments match it — the
+entry wrote `src/api.js` for `cockpit-react/src/api.js`, or `config/env.js` for
+`src/config/env.js`. The file exists and the entry's claim may well still hold; only its path is
+imprecise. These are listed separately as paths worth tidying, never nominated.
+
+The root map is the load-bearing part of this sub-project, not a configuration detail.
+
+**Amended 2026-08-17, after running the extractor against the live corpus** (the numbers in the
+opening section came from a cruder grep; these supersede them): 789 references extracted, **111**
+dead when resolved against AI-chatops alone, **66** unique still dead against all six roots, **7**
+of those tail matches, leaving **59** genuinely dead. The naive single-root detector overstates rot
+by 47%. Two weeks of a report that wrong and nobody reads it — which is the failure mode where a
+governance list becomes the new blind spot.
 
 ### `tools/scan-memory-rot.mjs` — the report
 
