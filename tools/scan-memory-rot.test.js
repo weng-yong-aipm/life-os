@@ -126,3 +126,77 @@ test('revive candidates appear in the report under their own heading', () => {
   assert.match(r.markdown, /## 待重审/);
   assert.match(r.markdown, /src\/store\/useStore\.js/);
 });
+
+/* ── The unit of nomination: a dead reference is not a dead entry ────────────────────────────── */
+
+test('THE property: an entry with only SOME dead refs is NOT nominated for retirement', () => {
+  // ai-chatops-stale-branches has 2 dead refs out of 9 and was updated today. Retiring it for
+  // those 2 would delete knowledge that is live. The entry is still true; two paths are stale.
+  const r = buildReport({
+    entries: [entry('mixed', 'alive `src/store/useStore.js` and dead `scripts/gone.mjs`')],
+    roots: ROOTS, exists, today: '2026-08-17',
+  });
+  assert.equal(r.counts.nominations, 0, 'a partially-stale entry must not be retired');
+  assert.equal(r.counts.pathFixes, 1);
+  assert.match(r.markdown, /## 待修路径/);
+  assert.match(r.markdown, /mixed — scripts\/gone\.mjs/);
+});
+
+test('THE property: an entry whose refs are ALL dead IS nominated', () => {
+  const r = buildReport({
+    entries: [entry('rotten', 'see `scripts/gone.mjs` and `docs/also-gone.md`')],
+    roots: ROOTS, exists, today: '2026-08-17',
+  });
+  assert.equal(r.counts.nominations, 1);
+  assert.equal(r.counts.pathFixes, 0);
+  assert.match(r.markdown, /- \[ \] rotten/);
+});
+
+test('THE property: an entry with NO references at all is never nominated', () => {
+  // 0 dead of 0 refs satisfies "all refs are dead" arithmetically. Advice and preferences have
+  // no anchor to check, and nominating them would retire the corpus by degrees.
+  const r = buildReport({
+    entries: [entry('advice', 'always run the tests before pushing')],
+    roots: ROOTS, exists, today: '2026-08-17',
+  });
+  assert.equal(r.counts.nominations, 0, 'an entry with nothing to check cannot be evidence of rot');
+  assert.equal(r.counts.pathFixes, 0);
+});
+
+test('the path-fix rows carry the ratio, so a 6-of-92 entry reads differently from a 5-of-6', () => {
+  const r = buildReport({
+    entries: [entry('mixed', 'alive `src/store/useStore.js` and dead `scripts/gone.mjs`')],
+    roots: ROOTS, exists, today: '2026-08-17',
+  });
+  assert.match(r.markdown, /1\/2/, 'the report must show how much of the entry is stale');
+});
+
+test('path-fix rows are plain `- `, so the applier can never read them as approvals', () => {
+  const r = buildReport({
+    entries: [entry('mixed', 'alive `src/store/useStore.js` and dead `scripts/gone.mjs`')],
+    roots: ROOTS, exists, today: '2026-08-17',
+  });
+  const approvalRows = [...r.markdown.matchAll(/^- \[ \] /gm)].length;
+  assert.equal(approvalRows, 0, 'a path-fix row written as an approval row would retire the entry');
+});
+
+/* ── Index membership: a strong signal, surfaced not automated ───────────────────────────────── */
+
+test('THE property: nominations say whether the entry is still in the active index', () => {
+  // An entry still linked from MEMORY.md is one Weng curates; one that is not has already been
+  // dropped from the injected index and is de-facto retired without a marker. The signal is
+  // reported, never acted on: MEMORY.md was rewritten by another session DURING this scan, so
+  // treating it as authoritative would let one session's edit retire another's entry.
+  const index = '- 📦 **[Kept](rotten.md)** — still curated\n';
+  const r = buildReport({
+    entries: [entry('rotten', 'see `scripts/gone.mjs`'), entry('orphan', 'see `docs/also-gone.md`')],
+    roots: ROOTS, exists, today: '2026-08-17', index,
+  });
+  assert.match(r.markdown, /- \[ \] rotten .*索引中/, 'an indexed entry must be marked as curated');
+  assert.match(r.markdown, /- \[ \] orphan .*不在索引/, 'an unindexed entry must be marked');
+});
+
+test('without an index the rows carry no membership claim at all', () => {
+  const r = buildReport({ entries: [entry('rotten', 'see `scripts/gone.mjs`')], roots: ROOTS, exists, today: '2026-08-17' });
+  assert.ok(!/索引/.test(r.markdown), 'no index supplied means no claim, not a false "not indexed"');
+});
