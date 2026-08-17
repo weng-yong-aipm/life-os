@@ -49,9 +49,16 @@ run_step ingest         "$NODE" "$HOME/second-brain/scripts/ingest-follow.mjs" a
 run_step auto-summarize "$NODE" "$HOME/second-brain/scripts/auto-summarize.mjs"
 run_step daily-report   "$NODE" "$HOME/second-brain/scripts/daily-report.mjs"
 
-# Cross-job health, printed for the log. Deliberately does NOT gate this script's
-# exit code: it reports on backup-db and obsidian-brief too, and feed-daily must
-# not go red for someone else's dead job — the line itself is the signal.
+# Cross-job health. Deliberately does NOT gate this script's exit code: it
+# reports on backup-db and obsidian-brief too, and feed-daily must not go red
+# for someone else's dead job.
+#
+# What changed 2026-08-17: the verdict used to go to stdout and nowhere else,
+# and this line discarded its exit code, so "the line itself is the signal"
+# meant the signal lived only in a log file. That is exactly how the backup sat
+# dead for eleven days behind an exit code of 0. `job-runs.js health` now sends
+# an alert when it goes red, so `|| true` here only keeps someone else's dead
+# job from failing THIS script — it no longer swallows the warning.
 "$NODE" "$JOB_RUNS" health || true
 
 if [ -n "$FAILED" ]; then

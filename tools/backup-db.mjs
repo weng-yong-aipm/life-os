@@ -35,7 +35,7 @@
  * runs locally only. Dependency-free: native fetch + fs, matching every
  * other tool in this directory. */
 
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -219,23 +219,37 @@ async function runBackup({ SB, H, outDir, today }) {
   }
   const coverage = coverageReport(tables, readBack);
 
+  /* Same read-the-disk check for buckets. `expected` is what the listing said
+   * the bucket holds, so a bucket whose files silently failed to write is a
+   * mismatch rather than a green tick. */
+  const bucketReadBack = new Map();
+  for (const b of bucketResults) {
+    if (b.files == null) continue;
+    const bare = b.name.replace(/^storage:/, '');
+    bucketReadBack.set(b.name, readBackBucket(outDir, bare, b.files));
+  }
+  const bucketCoverage = coverageReport(
+    buckets.length ? bucketResults.filter((b) => b.files != null).map((b) => b.name) : [],
+    bucketReadBack,
+  );
+
   const bucketFailures = bucketResults.filter((b) => !b.ok);
   const tableFetchFailures = tableResults.filter((r) => !r.ok);
-  const ok = coverage.ok && bucketFailures.length === 0 && tableFetchFailures.length === 0;
+  const ok = coverage.ok && bucketCoverage.ok && bucketFailures.length === 0 && tableFetchFailures.length === 0;
 
   const counts = {
     tables: tables.length,
     rows: tableResults.reduce((n, r) => n + (r.rows ?? 0), 0),
     buckets: buckets.length,
     files: bucketResults.reduce((n, b) => n + (b.files ?? 0), 0),
-    failed: tableFetchFailures.length + bucketFailures.length + coverage.reasons.length,
+    failed: tableFetchFailures.length + bucketFailures.length + coverage.reasons.length + bucketCoverage.reasons.length,
   };
 
   writeFileSync(join(outDir, '_manifest.json'), JSON.stringify({
-    date: today, ok, counts, tables: tableResults, buckets: bucketResults, coverage,
+    date: today, ok, counts, tables: tableResults, buckets: bucketResults, coverage, bucketCoverage,
   }, null, 1));
 
-  return { ok, outDir, tables, buckets, tableResults, bucketResults, coverage, counts };
+  return { ok, outDir, tables, buckets, tableResults, bucketResults, coverage, bucketCoverage, counts };
 }
 
 async function getJson(url, init, what) {
@@ -280,6 +294,32 @@ function readBackTable(outDir, name, expected) {
     const parsed = JSON.parse(readFileSync(join(outDir, `${name}.json`), 'utf8'));
     if (!Array.isArray(parsed)) return { error: 'file is not a JSON array' };
     return { rows: parsed.length, expected };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+/* The bucket half of the coverage check.
+ *
+ * Until 2026-08-17 there wasn't one: coverageReport was called with tables
+ * only, yet the closing line claimed "Every discovered table AND BUCKET backed
+ * up and verified on disk". A run that discovered zero buckets — or wrote none
+ * of their files — printed that sentence and exited 0. Counting what actually
+ * landed under storage/<bucket>/ is the same trick the tables use: read the
+ * directory that was just written, not the loop's own opinion of itself. */
+function readBackBucket(outDir, bucket, expected) {
+  const dir = join(outDir, 'storage', bucket);
+  try {
+    if (!existsSync(dir)) return expected === 0 ? { rows: 0, expected } : { error: 'no directory written' };
+    let n = 0;
+    const walk = (d) => {
+      for (const e of readdirSync(d, { withFileTypes: true })) {
+        if (e.isDirectory()) walk(join(d, e.name));
+        else n++;
+      }
+    };
+    walk(dir);
+    return { rows: n, expected };
   } catch (e) {
     return { error: e.message };
   }
@@ -353,10 +393,21 @@ function report(summary, { recorded, startedAt }) {
   console.log(`\n  coverage: ${summary.tables.length} table(s) discovered, ` +
     `${summary.tables.length - summary.coverage.missing.length - summary.coverage.unreadable.length - summary.coverage.mismatched.length} verified on disk`);
   for (const reason of summary.coverage.reasons) console.log(`  ✗ coverage: ${reason}`);
+  const bc = summary.bucketCoverage;
+  console.log(`  coverage: ${summary.buckets.length} bucket(s) discovered, ` +
+    `${summary.buckets.length - bc.missing.length - bc.unreadable.length - bc.mismatched.length} verified on disk`);
+  for (const reason of summary.bucketCoverage.reasons) console.log(`  ✗ bucket coverage: ${reason}`);
 
   console.log(`  job_runs: ${recorded ? `recorded (started ${startedAt})` : 'NOT recorded'}`);
+  /* The sentence is built from the counts rather than fixed, because the fixed
+   * version claimed buckets were "verified on disk" on a run that discovered
+   * none and read none back. A success line has to describe what happened. */
+  const what = [
+    `${summary.tables.length} table(s)`,
+    summary.buckets.length ? `${summary.buckets.length} bucket(s)` : null,
+  ].filter(Boolean).join(' and ');
   console.log(summary.ok
-    ? `\nEvery discovered table and bucket backed up and verified on disk.`
+    ? `\n${what} backed up and verified on disk.`
     : `\nBACKUP INCOMPLETE — see ✗ lines above. Exiting non-zero.`);
 }
 

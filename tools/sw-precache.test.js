@@ -222,3 +222,40 @@ test('no ASSETS entry is dead weight (nothing reaches it)', () => {
   const orphans = ASSETS.filter((a) => !reachable.has(a.rel)).map((a) => a.entry);
   assert.deepEqual(orphans, [], `ASSETS entries unreachable from any app page:\n${orphans.map((e) => `  ${e}`).join('\n')}`);
 });
+
+/* The hole this file had until 2026-08-17.
+ *
+ * Every check above strips `?v=N` from both sides before comparing, so
+ * './ui.css' in ASSETS scored as covering '../ui.css?v=7'. At runtime they are
+ * different cache keys — caches.match defaults to ignoreSearch:false — and the
+ * app was genuinely broken on a cold offline load while this suite stayed
+ * green. Stripping is still the right thing for the reachability walk; what was
+ * missing is any assertion about the side that does the matching.
+ *
+ * WHAT THIS FILE STILL CANNOT CHECK: that the cached response is correct, that
+ * install actually succeeded on a real device, or that a runtime-cached entry
+ * from an earlier online visit is not masking a missing precache entry. Only a
+ * cold load with the origin unreachable shows that.
+ */
+test('the fetch handler matches the cache with ignoreSearch (precache stores unsuffixed paths)', () => {
+  const sw = readFileSync(path.join(ROOT, 'service-worker.js'), 'utf8');
+  const match = sw.match(/caches\.match\(([^)]*)\)/);
+  assert.ok(match, 'no caches.match call found — the offline fallback is gone');
+  assert.match(
+    match[1],
+    /ignoreSearch:\s*true/,
+    'caches.match must pass { ignoreSearch: true }: ASSETS holds clean paths while every page requests ?v=N, ' +
+    'so without it the precached copy is never found and the app is broken offline',
+  );
+});
+
+test('the referenced files really do carry query suffixes (this guard is not theoretical)', () => {
+  // If nothing were suffixed, the assertion above would be dead weight and
+  // someone would rightly delete it. Prove the situation it guards exists.
+  const suffixed = [];
+  for (const rel of appPagesOnDisk()) {
+    const html = readFileSync(path.join(ROOT, rel), 'utf8');
+    for (const m of html.matchAll(/(?:src|href)="([^"]*\?v=[^"]*)"/g)) suffixed.push(`${rel} → ${m[1]}`);
+  }
+  assert.ok(suffixed.length > 0, 'expected at least one ?v= reference; if these are all gone, the ignoreSearch guard can go too');
+});

@@ -122,6 +122,19 @@ self.addEventListener('fetch', (e) => {
         caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
         return res;
       })
-      .catch(() => caches.match(e.request))
+      /* ignoreSearch is load-bearing, not a nicety.
+       *
+       * ASSETS stores clean paths ('./ui.css'), but every page asks for the
+       * cache-busted URL ('../ui.css?v=7'). caches.match defaults to
+       * ignoreSearch:false, so those are two different keys and the precached
+       * copy was never found: offline, log/index.html came back as unstyled
+       * Times with its module script missing entirely. The ?v= suffix is an
+       * HTTP cache-buster, never a different resource, so matching without the
+       * query is exactly right here.
+       *
+       * Remove this option and the whole precache list stops working offline
+       * while every test stays green — sw-precache.test.js now asserts it is
+       * present for that reason. */
+      .catch(() => caches.match(e.request, { ignoreSearch: true }))
   );
 });

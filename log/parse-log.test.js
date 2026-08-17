@@ -94,7 +94,7 @@ test('inserts carry the exact column names each table has', () => {
   assert.deepEqual(Object.keys(ins.meals[0]).sort(),
     ['calories', 'carbs_g', 'eaten_at', 'fat_g', 'name', 'protein_g', 'source', 'user_id']);
   assert.deepEqual(Object.keys(ins.sleep[0]).sort(),
-    ['duration_min', 'note', 'quality', 'slept_on', 'source', 'user_id']);
+    ['duration_min', 'quality', 'slept_on', 'source', 'user_id']);
   assert.deepEqual(Object.keys(ins.expenses[0]).sort(),
     ['amount', 'category', 'note', 'spent_at', 'user_id']);
   assert.deepEqual(Object.keys(ins.learning_sessions[0]).sort(),
@@ -109,4 +109,40 @@ test('inserts carry the exact column names each table has', () => {
 test('an empty parse produces no inserts at all', () => {
   const ins = toInserts([], 'user-1');
   assert.deepEqual(ins, { meals: [], sleep: [], expenses: [], learning_sessions: [] });
+});
+
+test('a sleep row omits what the sentence did not mention, so an upsert cannot erase it', () => {
+  // sleep is upserted on (user_id, slept_on) and ON CONFLICT DO UPDATE writes
+  // every column handed to it. Sending nulls for the fields this sentence was
+  // silent about destroyed a hand-typed quality and note, under a green
+  // "Saved 1 → sleep". The migration for this table forbids exactly that.
+  const { rows } = parseResult({ rows: [{ kind: 'sleep', on: TODAY, duration_min: 420 }] }, TODAY);
+  const row = toInserts(rows, 'user-1').sleep[0];
+  assert.equal(row.duration_min, 420);
+  assert.ok(!('quality' in row), 'quality must be absent, not null');
+  assert.ok(!('note' in row), 'note must be absent, not null');
+});
+
+test('a bare array of rows is read as the rows', () => {
+  const out = parseResult('[{"kind":"meal","on":"2026-08-17","name":"nasi lemak"}]', TODAY);
+  assert.equal(out.error, null);
+  assert.equal(out.rows.length, 1);
+});
+
+test('unparsed arriving as a string is kept, not thrown away', () => {
+  // The model naming what it could not read is the single most important thing
+  // this field carries; dropping it left the screen saying "nothing" with no
+  // way to tell that from an empty sentence.
+  const out = parseResult('{"rows":[],"unparsed":"could not read \'felt weird after\'"}', TODAY);
+  assert.equal(out.error, null);
+  assert.equal(out.unparsed.length, 1);
+  assert.match(out.unparsed[0], /felt weird after/);
+});
+
+test('valid JSON in an unrecognised shape is an error, not an empty success', () => {
+  for (const bad of ['{"items":[{"kind":"meal"}]}', '{"rows":{"kind":"meal"}}', '{}']) {
+    const out = parseResult(bad, TODAY);
+    assert.equal(out.rows.length, 0, bad);
+    assert.ok(out.error, `${bad} must report an error`);
+  }
 });

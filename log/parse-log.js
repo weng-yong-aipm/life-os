@@ -94,13 +94,38 @@ function normaliseRow(raw, today) {
  * not happen, and "your sentence produced nothing, but here is a tick" is
  * exactly that shape. */
 export function parseResult(raw, today) {
+  const fail = (error) => ({ rows: [], unparsed: [], dropped: [], error });
+
   let obj = raw;
   if (typeof raw === "string") {
-    try { obj = JSON.parse(raw); } catch { return { rows: [], unparsed: [], dropped: [], error: "model did not return JSON" }; }
+    try { obj = JSON.parse(raw); } catch { return fail("model did not return JSON"); }
   }
-  if (!obj || typeof obj !== "object") return { rows: [], unparsed: [], dropped: [], error: "model did not return an object" };
+  if (!obj || typeof obj !== "object") return fail("model did not return an object");
 
-  const incoming = Array.isArray(obj.rows) ? obj.rows : [];
+  /* A reply that is valid JSON but the wrong SHAPE used to fall straight through
+   * here as an empty success: `{"items":[…]}`, a bare array, or `"unparsed"`
+   * arriving as a string instead of an array all produced rows:[] with no error,
+   * and the screen said "nothing". The worst case was the model explicitly
+   * naming what it could not read — the one thing this field exists to carry —
+   * and that admission being thrown away. A shape we do not recognise is a
+   * failure, and a bare array is simply the rows. */
+  const incoming = Array.isArray(obj) ? obj
+    : Array.isArray(obj.rows) ? obj.rows
+    : null;
+
+  // `unparsed` is accepted as a string too; the model hands it over that way
+  // often enough that refusing it loses exactly the text it was meant to save.
+  const unparsedRaw = typeof obj.unparsed === "string" ? [obj.unparsed]
+    : Array.isArray(obj.unparsed) ? obj.unparsed
+    : null;
+
+  if (incoming === null) {
+    if (unparsedRaw === null) return fail("model returned JSON in a shape this app does not recognise");
+    // rows missing but unparsed present is coherent: it read the sentence and
+    // could not turn any of it into a row. Not an error — just nothing to save.
+    return { rows: [], unparsed: unparsedRaw.map(str).filter(Boolean), dropped: [], error: null };
+  }
+
   const rows = [];
   const dropped = [];
   for (const r of incoming) {
@@ -108,7 +133,7 @@ export function parseResult(raw, today) {
     if (ok) rows.push(ok);
     else dropped.push(r);
   }
-  const unparsed = (Array.isArray(obj.unparsed) ? obj.unparsed : []).map(str).filter(Boolean);
+  const unparsed = (unparsedRaw || []).map(str).filter(Boolean);
   return { rows, unparsed, dropped, error: null };
 }
 
@@ -138,10 +163,23 @@ export function toInserts(rows, userId) {
         calories: r.calories, protein_g: r.protein_g, carbs_g: r.carbs_g, fat_g: r.fat_g,
       });
     } else if (r.kind === "sleep") {
-      out.sleep.push({
-        user_id: userId, slept_on: r.on, duration_min: r.duration_min,
-        quality: r.quality, note: r.note, source: "quick-log",
-      });
+      /* Only the fields this sentence actually mentioned.
+       *
+       * sleep is upserted on (user_id, slept_on), and ON CONFLICT DO UPDATE
+       * writes every column it is handed — so sending quality:null and
+       * note:null for a second sentence about the same night ERASED a quality
+       * and a note typed by hand, and the screen said "Saved 1 → sleep" in
+       * green. That is the exact thing the migration for this table forbids in
+       * writing: "never clobbering a hand-typed quality or note".
+       *
+       * Omitting a key leaves the stored value alone. The cost is that this
+       * path cannot clear a field back to empty, which is the right trade: a
+       * value you have to delete elsewhere beats a value destroyed silently. */
+      const row = { user_id: userId, slept_on: r.on, source: "quick-log" };
+      if (r.duration_min != null) row.duration_min = r.duration_min;
+      if (r.quality != null) row.quality = r.quality;
+      if (r.note != null) row.note = r.note;
+      out.sleep.push(row);
     } else if (r.kind === "expense") {
       out.expenses.push({
         user_id: userId, spent_at: r.on, amount: r.amount, category: r.category, note: r.note,
