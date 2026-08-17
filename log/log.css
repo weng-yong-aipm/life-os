@@ -1,0 +1,81 @@
+/* Quick log.
+ *
+ * Sized for a thumb on a phone, because that is the only place it will ever be
+ * used: the whole point is the path from "I ate something" to a row, standing
+ * up, in under fifteen seconds. Everything here is on the Daybook tokens from
+ * ui.css so it follows the app's light/dark rather than defining its own. */
+
+.quick-log { max-width: 34rem; }
+
+.quick-log-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+}
+
+#log-text {
+  width: 100%;
+  font: inherit;
+  /* 16px minimum, or iOS Safari zooms the whole page on focus and the box the
+     user just tapped scrolls out from under the keyboard. */
+  font-size: max(1rem, 16px);
+  line-height: 1.5;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  resize: vertical;
+}
+
+.quick-log-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.quick-log-actions button { min-width: 7rem; }
+
+.quick-log-summary {
+  font-weight: 600;
+  margin: 1.1rem 0 0.4rem;
+}
+
+.quick-log-rows,
+.quick-log-leftovers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.quick-log-rows li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+
+.quick-log-rows li:last-child { border-bottom: none; }
+
+/* What the model could not read, and what the parser refused. Deliberately not
+   styled as an error — it is not a failure, it is the part of the sentence that
+   still needs saying. But it must be impossible to miss, because a preview that
+   hides it turns "Saved" into a lie about the missing half. */
+.quick-log-leftovers {
+  margin-top: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border-left: 3px solid var(--warn, #b0801c);
+  background: var(--surface);
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+}
+
+.quick-log-leftovers li { padding: 0.15rem 0; overflow-wrap: anywhere; }
+
+.quick-log-ok { font-weight: 600; }
+
+.quick-log-partial {
+  font-weight: 600;
+  color: var(--warn, #b0801c);
+}

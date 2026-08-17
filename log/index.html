@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>life-os — Quick log</title>
+<link rel="stylesheet" href="../ui.css?v=7" />
+<link rel="stylesheet" href="../shell.css?v=1" />
+<link rel="stylesheet" href="./log.css?v=1" />
+<script type="module" src="../shell.js"></script>
+<link rel="manifest" href="../manifest.webmanifest" />
+</head>
+<body>
+<header>
+  <a href="../index.html">&larr; life-os</a>
+  <h1>Quick log</h1>
+</header>
+
+<!-- One box. No module to pick, no fields to fill, no date to set. The whole
+     reason this page exists is that the four-step path (open, sign in, pick a
+     module, fill a form) produced zero rows in six weeks. -->
+<section class="quick-log">
+  <label for="log-text" class="quick-log-label">What happened?</label>
+  <textarea id="log-text" rows="3"
+    placeholder="chicken rice for lunch, RM12 &middot; slept 7h, woke up rough &middot; watched a Douyin video on agent evals"></textarea>
+  <div class="quick-log-actions">
+    <button type="button" id="log-read">Read it</button>
+    <span id="log-status" class="hint"></span>
+  </div>
+
+  <!-- The preview is not a form. It is one line saying what was understood,
+       plus the rows themselves, so a misread costs a glance instead of a wrong
+       row filed under today. -->
+  <div id="log-preview" hidden>
+    <p id="log-summary" class="quick-log-summary"></p>
+    <ul id="log-rows" class="quick-log-rows"></ul>
+    <div id="log-leftovers"></div>
+    <div class="quick-log-actions">
+      <button type="button" id="log-save">Save</button>
+      <button type="button" id="log-cancel" class="secondary">Start over</button>
+    </div>
+  </div>
+
+  <div id="log-result" hidden>
+    <p id="log-result-line"></p>
+    <div class="quick-log-actions">
+      <button type="button" id="log-again">Log something else</button>
+    </div>
+  </div>
+</section>
+
+<script type="module" src="./log-ui.js?v=1"></script>
+</body>
+</html>

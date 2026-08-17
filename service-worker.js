@@ -12,7 +12,7 @@
  * direction — missing a reachable file, or naming a file that no longer exists.
  * install() uses addAll(), which is atomic: one stale entry 404s and the whole
  * service worker never activates, so a wrong entry is as fatal as a missing one. */
-const CACHE = 'life-os-v9';
+const CACHE = 'life-os-v10';
 const ASSETS = [
   './',
   './index.html',
@@ -25,6 +25,11 @@ const ASSETS = [
   './config.js',
   './demo.js',
   './manifest.webmanifest',
+  './log/index.html',
+  './log/log-ui.js',
+  './log/log-repo.js',
+  './log/parse-log.js',
+  './log/log.css',
   './icon.svg',
   './shared/local-date.js',
   './shared/tab-hash.js',

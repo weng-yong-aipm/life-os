@@ -5,6 +5,7 @@ import { demoBanner } from './demo.js';
 
 const MODULES = [
   { key: 'home', href: 'index.html', ico: '🏠', name: 'Home' },
+  { key: 'log', href: 'log/index.html', ico: '⚡', name: 'Quick log' },
   { key: 'finance', href: 'finance/index.html', ico: '🧾', name: 'Finance' },
   { key: 'health', href: 'health/index.html', ico: '🍳', name: 'Health' },
   { key: 'training', href: 'training/index.html', ico: '🏋️', name: 'Training' },
@@ -16,7 +17,7 @@ const MODULES = [
   { key: 'improve', href: 'improve/index.html', ico: '✨', name: 'Improve' },
 ];
 
-const DIRS = ['finance', 'health', 'training', 'career', 'learning', 'capture', 'feed', 'plan', 'improve'];
+const DIRS = ['log', 'finance', 'health', 'training', 'career', 'learning', 'capture', 'feed', 'plan', 'improve'];
 const inSub = DIRS.some((d) => location.pathname.includes(`/${d}/`));
 const base = inSub ? '../' : './';
 const activeKey = DIRS.find((d) => location.pathname.includes(`/${d}/`)) || 'home';
