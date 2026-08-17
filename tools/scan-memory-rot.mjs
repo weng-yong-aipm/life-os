@@ -6,6 +6,12 @@
  *
  * The report is also the approval surface — delete the rows you disagree with,
  * then run tools/apply-retirement.mjs against it.
+ *
+ * ⚠️ DO NOT verify "this wrote nothing" with `git status` in the corpus. That directory's
+ * .gitignore is `/*` — it ignores everything, so no entry .md is tracked and `git status` there
+ * is empty whether or not a tool rewrote all 294 files. Three runs of this scan were "verified"
+ * that way before the gitignore was read; the check was vacuous. Compare file mtimes, or grep the
+ * entries for the field a writer would have added.
  */
 import { readFileSync, writeFileSync, readdirSync, existsSync, statSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';

@@ -21,10 +21,15 @@ import { CORPUS, buildTailIndex } from './scan-memory-rot.mjs';
 const ROW = /^- \[ \] (\S+) — (.+)$/gm;
 const HEADING = '## 已淘汰';
 
+/* The scan appends `[索引中]` / `[不在索引]` to nomination rows. ROW ends in `(.+)$`, so without
+ * stripping that the annotation becomes a fake dead reference — and lands in the evidence written
+ * into the entry, which is the one field a human reads when judging the retirement later. */
+const ANNOTATION = /\s*\[[^\]]*\]\s*$/;
+
 export function parseApproved(markdown) {
   return [...markdown.matchAll(ROW)].map((m) => ({
     name: m[1],
-    dead: m[2].split(',').map((s) => s.trim()).filter(Boolean),
+    dead: m[2].replace(ANNOTATION, '').split(',').map((s) => s.trim()).filter(Boolean),
   }));
 }
 

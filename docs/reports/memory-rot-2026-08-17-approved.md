@@ -1,9 +1,15 @@
+# 批准副本 — 2026-08-17
+#
+# 源: docs/reports/memory-rot-2026-08-17.md (9 条提名)。这里只保留 5 条【不在 MEMORY.md 索引】的。
+# 删掉的 4 条仍挂在活跃索引上, Weng 在维护它们 —— 引用的脚本搬家了, 但条目本身仍然成立。
+# 尤其 totp-migration-bitwarden: 5 个脚本全没了, 但「绝不建议重置密码」这条知识不因脚本搬家而过期。
+#
 # Memory rot — nominations 2026-08-17
 
 entries read: 294
-references resolved: 787
-dead references: 59 occurrences · 55 unique
-nominations (every reference dead): 4
+references resolved: 793
+dead references: 65 occurrences · 60 unique
+nominations (every reference dead): 9
 path fixes (entry still holds): 22
 short paths (not rot): 13
 roots searched: /Users/wengyong/AI-chatops, /Users/wengyong/life-os, /Users/wengyong/cs-flow-builder, /Users/wengyong/chatbot, /Users/wengyong/PersonalNotes, /Users/wengyong/Documents/DevNotes
@@ -12,10 +18,11 @@ roots searched: /Users/wengyong/AI-chatops, /Users/wengyong/life-os, /Users/weng
 
 Delete any row you disagree with, then run `node tools/apply-retirement.mjs <this file>`.
 
-- [ ] market-brief-cross-platform-2026-08-10 — scripts/ingest-follow.mjs  [索引中]
-- [ ] personal-cockpit-project — scripts/gdrive-auth.js, scripts/record-commits.js  [索引中]
-- [ ] second-brain-project — docs/superpowers/plans/2026-07-09-second-brain-implementation.md, docs/superpowers/specs/2026-07-09-second-brain-design.md, scripts/build-graph.js, scripts/ingest.sh  [索引中]
-- [ ] totp-migration-bitwarden — scripts/qr-verify.swift, scripts/totp.mjs, scripts/vault-doctor-cron.sh, scripts/vault-doctor.mjs, scripts/vault-export.mjs  [索引中]
+- [ ] daily-report-desk-repoint — scripts/claude-cli.mjs, scripts/desk-source.mjs  [不在索引]
+- [ ] desk-shelf-plan1-execution — tools/backfill-douyin-ledger.mjs  [不在索引]
+- [ ] learning-os-vision — tools/obsidian-sync.mjs  [不在索引]
+- [ ] lifeos-history-purge-2026-08-03 — scripts/synthesize.mjs  [不在索引]
+- [ ] livechat-endchat-audit-2026-07-15 — docs/DEV_WORKFLOW.md  [不在索引]
 
 ## 待修路径（条目仍成立，只是路径过时）
 

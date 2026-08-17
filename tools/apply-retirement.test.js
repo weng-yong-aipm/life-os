@@ -73,3 +73,16 @@ test('a slug that is a prefix of another entry does not match the wrong line', (
   assert.equal(r.moved, false);
   assert.match(r.reason, /no index line/i);
 });
+
+test('THE property: a trailing annotation on a row is not parsed as a dead reference', () => {
+  // The scan appends `[索引中]` / `[不在索引]` to nomination rows. The row pattern ends in
+  // `(.+)$`, so without stripping it the annotation becomes a fake reference — and lands in the
+  // evidence written into the entry, which is the one field a human reads to judge the
+  // retirement. Caught by running the real approval file through the real parser before applying.
+  const rows = parseApproved('- [ ] e — scripts/a.mjs, scripts/b.mjs  [不在索引]\n');
+  assert.deepEqual(rows, [{ name: 'e', dead: ['scripts/a.mjs', 'scripts/b.mjs'] }]);
+});
+
+test('a row with no annotation is unaffected', () => {
+  assert.deepEqual(parseApproved('- [ ] e — scripts/a.mjs\n'), [{ name: 'e', dead: ['scripts/a.mjs'] }]);
+});
