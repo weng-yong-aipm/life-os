@@ -1,33 +1,25 @@
 #!/usr/bin/env node
 /* Import the Douyin learning ledger into Supabase learning_sessions.
  *
- * Run:  node tools/import-douyin.mjs [--dry]
+ * Reads ~/douyin-learning/index.json, signs in as the app user (anon key +
+ * email/password → RLS applies, user_id = auth.uid()), maps the ledger via
+ * toLearningRows, then upserts on (user_id, source, external_id) via PostgREST.
  *
- * Reads ~/douyin-learning/index.json, maps it with learning/douyin-import.js,
- * and INSERTS only the entries that are not in the table yet. Rows already
- * there are left untouched — see splitForImport for why that matters more than
- * refreshing their captions.
+ * Dependency-free: uses Node's built-in fetch (Node 18+) against the REST API —
+ * NOT supabase-js, which can only be loaded from esm.sh in a browser, not Node.
  *
- * Dependency-free: Node's built-in fetch against PostgREST, not supabase-js
- * (which only loads from esm.sh in a browser).
- *
- * Credentials: SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY from life-os/.env. The
- * previous version required SUPABASE_USER_EMAIL / SUPABASE_USER_PASSWORD, which
- * have never been in that file — this tool has been unrunnable since it was
- * written, and it also imported a module (learning/douyin-import.js) that was
- * never committed. Both are fixed here. The service role bypasses RLS, so the
- * owning user is resolved from the admin API and set explicitly on every row.
+ * Requires in life-os/.env:
+ *   SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_USER_EMAIL, SUPABASE_USER_PASSWORD
+ * Does NOT use service_role for the write.
  */
 
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { toLearningRows, splitForImport, summarise } from '../learning/douyin-import.js';
+import { toLearningRows } from '../learning/douyin-import.js';
 
 const LEDGER_PATH = join(homedir(), 'douyin-learning', 'index.json');
 const ENV_PATH = new URL('../.env', import.meta.url).pathname;
-const DRY = process.argv.includes('--dry');
-const CHUNK = 200; // PostgREST handles this comfortably; keeps one bad row's blast radius small
 
 function loadEnv(path) {
   const env = {};
@@ -48,65 +40,44 @@ function loadEnv(path) {
 
 async function main() {
   const env = loadEnv(ENV_PATH);
-  const URL_ = env.SUPABASE_URL;
-  const KEY = env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!URL_ || !KEY) throw new Error('Missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY in .env');
-  const H = { apikey: KEY, Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' };
+  const { SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_USER_EMAIL, SUPABASE_USER_PASSWORD } = env;
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) throw new Error('Missing SUPABASE_URL / SUPABASE_ANON_KEY in .env');
+  if (!SUPABASE_USER_EMAIL || !SUPABASE_USER_PASSWORD) {
+    throw new Error('Missing SUPABASE_USER_EMAIL / SUPABASE_USER_PASSWORD in .env — add them before running.');
+  }
 
-  const usersRes = await fetch(`${URL_}/auth/v1/admin/users?per_page=1`, { headers: H });
-  if (!usersRes.ok) throw new Error(`Could not resolve the user (${usersRes.status})`);
-  const users = (await usersRes.json()).users || [];
-  if (!users.length) throw new Error('No user in this project — sign in to life-os once first.');
-  const userId = users[0].id;
+  // 1) sign in (password grant) → access token + user id
+  const authRes = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: SUPABASE_USER_EMAIL, password: SUPABASE_USER_PASSWORD }),
+  });
+  if (!authRes.ok) throw new Error(`Sign-in failed (${authRes.status})`);
+  const auth = await authRes.json();
+  const userId = auth.user.id;
 
+  // 2) map ledger → rows
   const ledger = JSON.parse(readFileSync(LEDGER_PATH, 'utf8'));
-  const videos = ledger.videos || ledger.items || (Array.isArray(ledger) ? ledger : []);
-  /* An empty ledger is a failure, not a no-op: the file has had a `videos` key
-   * for its whole life, and silently importing nothing because a key was
-   * renamed is exactly how a broken pipeline reports success. */
-  if (!videos.length) throw new Error(`No videos found in ${LEDGER_PATH} — check its shape before trusting this run`);
+  const now = new Date().toISOString();
+  const rows = toLearningRows(ledger.videos || [], userId).map((r) => ({ ...r, synced_at: now }));
+  if (!rows.length) { console.log('No videos in ledger — nothing to import.'); return; }
 
-  const rows = toLearningRows(videos, userId);
-
-  const existRes = await fetch(
-    `${URL_}/rest/v1/learning_sessions?user_id=eq.${userId}&source=eq.douyin&select=external_id`,
-    { headers: { ...H, Prefer: 'count=exact' } },
+  // 3) upsert on the (user_id, source, external_id) unique index
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/learning_sessions?on_conflict=user_id,source,external_id`,
+    {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${auth.access_token}`,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify(rows),
+    },
   );
-  if (!existRes.ok) throw new Error(`Could not read existing rows (${existRes.status})`);
-  const existing = new Set((await existRes.json()).map((r) => r.external_id).filter(Boolean));
-
-  const { toInsert, skipped } = splitForImport(rows, existing);
-
-  console.log(`ledger:      ${videos.length} entr(ies) → ${rows.length} mappable row(s)`);
-  console.log(`already in:  ${skipped.length} (left untouched — a hand-made verdict must survive a re-run)`);
-  console.log(`to insert:   ${toInsert.length}`);
-  console.log(`verdicts of the new rows: ${JSON.stringify(summarise(toInsert))}`);
-  if (!toInsert.length) { console.log('\nNothing to do.'); return; }
-  if (DRY) { console.log('\n--dry: nothing written.'); return; }
-
-  let written = 0;
-  for (let i = 0; i < toInsert.length; i += CHUNK) {
-    const batch = toInsert.slice(i, i + CHUNK);
-    const res = await fetch(
-      `${URL_}/rest/v1/learning_sessions?on_conflict=user_id,source,external_id`,
-      { method: 'POST', headers: { ...H, Prefer: 'resolution=ignore-duplicates,return=representation' }, body: JSON.stringify(batch) },
-    );
-    if (!res.ok) throw new Error(`Insert failed (${res.status}): ${(await res.text()).slice(0, 300)}`);
-    written += (await res.json()).length;
-  }
-
-  /* Count what is actually in the table afterwards rather than trusting the
-   * loop's own tally — the difference between "I sent 315 rows" and "315 rows
-   * are there" is the whole reason the backup rewrite exists. */
-  const afterRes = await fetch(
-    `${URL_}/rest/v1/learning_sessions?user_id=eq.${userId}&source=eq.douyin&select=external_id`,
-    { headers: { ...H, Prefer: 'count=exact', Range: '0-0' } },
-  );
-  const total = Number(String(afterRes.headers.get('content-range') || '').split('/')[1]);
-  console.log(`\ninserted ${written} row(s); the table now holds ${total} douyin row(s).`);
-  if (Number.isFinite(total) && total !== existing.size + written) {
-    console.log(`WARNING: expected ${existing.size + written} — something else wrote to this table during the run.`);
-  }
+  if (!res.ok) throw new Error(`Upsert failed (${res.status}): ${await res.text()}`);
+  console.log(`Upserted ${rows.length} row(s) into learning_sessions (source=douyin).`);
 }
 
 main().catch((err) => {
