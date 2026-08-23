@@ -159,6 +159,29 @@ async function loadJobRuns() {
   }
 }
 
+// PURE: why did this run go red? `ok` is decided by FOUR sources (see run()'s
+// `coverage.ok && bucketCoverage.ok && bucketFailures && tableFetchFailures`), and the ledger used
+// to record only `coverage.reasons`. So a run that failed on a bucket or a table fetch wrote
+// status='failed' with an EMPTY error — which is what the 2026-08-22 and 2026-08-17 rows in
+// job_runs look like: a failure that cannot say what failed. A verdict and its explanation must
+// come from the same set of facts, or they drift apart exactly when someone needs them.
+//
+// The last clause is the guard against this recurring: if `ok` is false and not one of the four
+// sources produced a line, say THAT, loudly, rather than writing an empty string. A new failure
+// source added to `ok` without being added here can then be spotted from the ledger.
+export function failureReason(summary) {
+  if (!summary || summary.ok) return null;
+  const parts = [
+    ...(summary.coverage?.reasons || []),
+    ...(summary.bucketCoverage?.reasons || []).map((r) => `bucket coverage: ${r}`),
+    ...(summary.tableResults || []).filter((r) => !r.ok).map((r) => `table ${r.name}: ${r.detail || 'failed with no detail'}`),
+    ...(summary.bucketResults || []).filter((b) => !b.ok).map((b) => `${b.name}: ${b.detail || 'failed with no detail'}`),
+  ];
+  return parts.length
+    ? parts.join('; ')
+    : 'run reported not-ok but no source explained why — a failure condition was added to `ok` without a matching reason line';
+}
+
 async function main() {
   const ENV = loadEnv();
   const SB = ENV.SUPABASE_URL;
@@ -183,8 +206,7 @@ async function main() {
 
   try {
     const summary = await runBackup({ SB, H, outDir, today });
-    const recorded = await finish(summary.ok ? 'ok' : 'failed', summary.counts,
-      summary.ok ? null : summary.coverage.reasons.join('; '));
+    const recorded = await finish(summary.ok ? 'ok' : 'failed', summary.counts, failureReason(summary));
     report(summary, { recorded, startedAt });
     if (!summary.ok) process.exitCode = 1;
   } catch (e) {

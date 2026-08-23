@@ -104,3 +104,48 @@ test('storage keys that would escape the backup directory are rejected', () => {
   assert.equal(isSafeObjectKey('/etc/passwd'), false);
   assert.equal(isSafeObjectKey(''), false);
 });
+
+// ── failureReason: a failure that cannot say what failed ─────────────────────────────────────
+// `ok` is decided by FOUR sources — coverage, bucketCoverage, bucketFailures, tableFetchFailures
+// — and the ledger call used to record only `coverage.reasons`. A run that failed on a bucket or
+// a table fetch therefore wrote status='failed' with an EMPTY error, which is exactly what the
+// 2026-08-17 and 2026-08-22 job_runs rows look like. The verdict and its explanation have to come
+// from the same set of facts or they drift apart precisely when someone needs them.
+test('failureReason covers every source that can set ok=false', async () => {
+  const { failureReason } = await import('./backup-db.mjs');
+
+  assert.equal(failureReason({ ok: true }), null, 'a good run has no reason to give');
+
+  assert.equal(failureReason({ ok: false, coverage: { reasons: ['no backup file for: x'] } }),
+    'no backup file for: x');
+
+  // The regression: these three used to produce an empty error string.
+  assert.match(failureReason({
+    ok: false, coverage: { reasons: [] },
+    bucketResults: [{ name: 'storage:media', ok: false, detail: '403 forbidden' }],
+  }), /storage:media: 403 forbidden/);
+
+  assert.match(failureReason({
+    ok: false, coverage: { reasons: [] },
+    tableResults: [{ name: 'notes', ok: false, detail: 'truncated: collected 10 of 99 row(s)' }],
+  }), /table notes: truncated/);
+
+  assert.match(failureReason({
+    ok: false, coverage: { reasons: [] }, bucketCoverage: { reasons: ['no file for: avatars'] },
+  }), /bucket coverage: no file for: avatars/);
+});
+
+test('failureReason says so LOUDLY when nothing explained the failure', async () => {
+  // The guard against this recurring: someone adds a fifth condition to `ok` and forgets to add a
+  // matching reason line. Writing '' there is how the original defect looked from the ledger.
+  const { failureReason } = await import('./backup-db.mjs');
+  const r = failureReason({ ok: false });
+  assert.ok(r && r.length > 0, 'an empty reason is the defect, not an acceptable answer');
+  assert.match(r, /no source explained why/);
+});
+
+test('a source that failed without a detail still names itself', async () => {
+  const { failureReason } = await import('./backup-db.mjs');
+  assert.match(failureReason({ ok: false, coverage: { reasons: [] }, tableResults: [{ name: 't', ok: false }] }),
+    /table t: failed with no detail/);
+});
