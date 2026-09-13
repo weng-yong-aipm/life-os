@@ -4,6 +4,14 @@ import {
   parseIngestOutput, classifyIngest, dayGate, nextStamp, localDate, shQuote, RETRY_DELAYS,
 } from './feed-ingest-guard.mjs';
 
+/* n result lines in ingest's exact shape. ✗ carries the platform in
+ * parentheses and a reason; ✓ carries a title. */
+const lines = (n, mark, platform) => Array.from({ length: n }, (_, i) => (
+  mark === '✗'
+    ? `  ✗ ${platform} source ${i + 1} (${platform}): fetch failed`
+    : `  ✓ ${platform} source ${i + 1}: a title`
+)).join('\n');
+
 /* Verbatim from ~/Library/Logs/lifeos-feed-ingest.log, the 2026-09-08 07:40:03
  * run — the one launchd fired inside a two-second DarkWake on battery. 21 rss
  * + 1 github + 2 threads = 24 attempted, 22 of them `fetch failed`, threads
@@ -37,6 +45,121 @@ const PARTIAL = `Ingesting [rss] · limit 6/source
 
 438 item(s) staged.
 257 inserted, 179 already known, 2 failed
+`;
+
+/* ---------- the two runs the starvation rule has to tell apart ----------
+ *
+ * Both are verbatim from ~/Library/Logs/lifeos-feed-ingest.log — the `·`
+ * lines, the staged line and the store line are exact; the given-up NAME lists
+ * are trimmed after the second name (the parser reads the count, not the
+ * names) and the ✓/✗ lines are generated at the real totals.
+ *
+ * 2026-09-13 15:19:14. feed-daily printed "=== feed-daily done … all steps ok
+ * ===" and the guard's own verdict line read "ingest verdict [ok]: 0 of 18
+ * source(s) unreachable, 106 item(s) staged, 71 inserted". Eighteen sources of
+ * 221 configured, and rss, github and youtube fetched from NOT ONE of theirs.
+ * The daily report for that day says "2 platforms" where 09-09's says "5". */
+const STARVED_0913 = `Logged in via browser: x, reddit, threads
+Ingesting [rss, github, youtube, x, reddit, threads] · limit 6/source
+
+· rss: skipping 25 given-up source(s): Simon Willison, Latent Space (swyx), ...
+· github: skipping 12 given-up source(s): Patrick Collison, John Collison, ...
+· youtube: skipping 20 given-up source(s): Andrej Karpathy, AI Engineer, ...
+· x: skipping 134 given-up source(s): Andrej Karpathy, Shawn Wang (swyx), ...
+· x: 2 source(s)
+${lines(12, '✓', 'x')}
+· reddit: skipping 12 given-up source(s): r/ClaudeAI, r/PromptEngineering, ...
+· reddit: 14 source(s)
+${lines(84, '✓', 'reddit')}
+· threads: 2 source(s)
+${lines(10, '✓', 'threads')}
+
+106 item(s) staged.
+71 inserted, 35 already known, 0 failed
+`;
+
+/* 2026-09-07 09:38:21, the last run in the log where every configured platform
+ * actually fetched something: rss 21, github 1, youtube 4, x 50, reddit 14,
+ * douyin 1, threads 2 — 93 attempted against 222 configured.
+ *
+ * NOT 2026-09-08, which is the trap. Both 09-08 runs read "all steps ok" and
+ * both were already starving: the 21:56 one fetched from 0 of github's 12 and
+ * 0 of youtube's 20 (the log has `github: skipping 12` and `youtube: skipping
+ * 20` and no `N source(s)` line for either). Using it as the green baseline
+ * would have pinned the requirement "keep passing a run that is already
+ * lying", which is why STARVED_0908_TRAP below asserts the opposite. */
+const GOOD_0907 = `Logged in via browser: x, reddit, douyin, threads
+Ingesting [rss, github, youtube, x, reddit, douyin, threads] · limit 6/source
+
+· rss: skipping 4 given-up source(s): Latent Space (swyx), New Straits Times, ...
+· rss: 21 source(s)
+${lines(21, '✗', 'rss')}
+· github: skipping 11 given-up source(s): John Collison, William Hockey, ...
+· github: 1 source(s)
+${lines(1, '✓', 'github')}
+· youtube: skipping 16 given-up source(s): LangChain, Stanford Online, ...
+· youtube: 4 source(s)
+${lines(4, '✓', 'youtube')}
+· x: skipping 86 given-up source(s): xAI, Marc Lou, ...
+· x: 50 source(s)
+${lines(50, '✓', 'x')}
+· reddit: skipping 12 given-up source(s): r/ClaudeAI, r/PromptEngineering, ...
+· reddit: 14 source(s)
+${lines(14, '✓', 'reddit')}
+· douyin: 1 source(s)
+${lines(1, '✓', 'douyin')}
+· threads: 2 source(s)
+${lines(2, '✓', 'threads')}
+
+262 item(s) staged.
+123 inserted, 139 already known, 0 failed
+`;
+
+/* The 2026-09-08 21:56 run, the one that must NOT be used as "a normal green
+ * day". Same shape as the log: github and youtube have only a skipping line. */
+const STARVED_0908_TRAP = `Ingesting [rss, github, youtube, x, instagram, reddit, douyin, threads] · limit 6/source
+
+· rss: skipping 22 given-up source(s): Latent Space (swyx), Hamel Husain, ...
+· rss: 3 source(s)
+· github: skipping 12 given-up source(s): Patrick Collison, John Collison, ...
+· youtube: skipping 20 given-up source(s): Andrej Karpathy, AI Engineer, ...
+· x: skipping 96 given-up source(s): Andrej Karpathy, Cameron Wolfe, ...
+· x: 40 source(s)
+· instagram: skipping 1 given-up source(s): Google DeepMind
+· instagram: 5 source(s)
+· reddit: skipping 12 given-up source(s): r/ClaudeAI, r/PromptEngineering, ...
+· reddit: 14 source(s)
+· douyin: 1 source(s)
+· threads: 2 source(s)
+${lines(358, '✓', 'rss')}
+
+358 item(s) staged.
+108 inserted, 250 already known, 0 failed
+`;
+
+/* The user turned youtube off in the config: no `skipping` line and no
+ * `N source(s)` line, because ingest never looked at the platform at all.
+ * Nothing is enabled there, so nothing is starving. */
+const PLATFORM_TURNED_OFF = `Ingesting [rss, github] · limit 6/source
+
+· rss: 3 source(s)
+${lines(3, '✓', 'rss')}
+· github: skipping 2 given-up source(s): John Collison, William Hockey
+· github: 4 source(s)
+${lines(4, '✓', 'github')}
+
+7 item(s) staged.
+7 inserted, 0 already known, 0 failed
+`;
+
+/* The end state the "enabled and not given up" denominator cannot see: every
+ * source on the only live platform has been retired, so the run tries nothing,
+ * fails at nothing, and exits 0. 0 of 0 is a pass under any ratio rule. */
+const EVERY_SOURCE_RETIRED = `Ingesting [rss] · limit 6/source
+
+· rss: skipping 25 given-up source(s): Simon Willison, Latent Space (swyx), ...
+
+0 item(s) staged.
 `;
 
 const CLEAN = `Ingesting [rss] · limit 6/source
@@ -146,6 +269,88 @@ test('an empty stdout (ingest died before printing) is unrecognized, not a black
   // would look exactly like a total blackout and trigger pointless retries
   // while naming the wrong cause.
   const v = classifyIngest({ exitCode: 1, stdout: '', dnsOk: false });
+  assert.equal(v.kind, 'unrecognized');
+  assert.equal(v.retryable, false);
+});
+
+/* ---------- the denominator, and the green that gets easier as the pipeline dies ---------- */
+
+test('attempted and skipped-given-up are counted separately, and the denominator is their sum', () => {
+  const c = parseIngestOutput(STARVED_0913);
+  assert.equal(c.attempted, 18);          // x 2 + reddit 14 + threads 2
+  assert.equal(c.skippedGivenUp, 203);    // 25 + 12 + 20 + 134 + 12
+  assert.equal(c.enabled, 221);           // what the config actually asks for
+  assert.deepEqual(
+    c.platforms.map((p) => `${p.platform} ${p.attempted}/${p.enabled}`),
+    ['rss 0/25', 'github 0/12', 'youtube 0/20', 'x 2/136', 'reddit 14/26', 'threads 2/2'],
+  );
+});
+
+test('the 2026-09-13 run that reported "all steps ok" is starved, and exit 0 does not excuse it', () => {
+  // THE REGRESSION THIS FILE EXISTS FOR. ingest exited 0 — truthfully, the 18
+  // sources it chose to try all answered — and the verdict was a perfect green
+  // while rss, github and youtube fetched from none of their 57 sources.
+  const v = classifyIngest({ exitCode: 0, stdout: STARVED_0913, dnsOk: true });
+  assert.equal(v.kind, 'starved');
+  assert.equal(v.retryable, false, 'no wait fixes this; a human has to revive the sources');
+  assert.match(v.summary, /3 platform\(s\) fetched from NONE of their configured sources/);
+  assert.match(v.summary, /rss 0\/25, github 0\/12, youtube 0\/20/);
+});
+
+test('the verdict prints attempted AND skipped-given-up, because one number cannot tell 18/24 from 18/221', () => {
+  const v = classifyIngest({ exitCode: 0, stdout: STARVED_0913, dnsOk: true });
+  assert.match(v.summary, /18 source\(s\) attempted, 203 skipped as given-up \(221 enabled in config\)/);
+  // The old sentence, which reads the same on a healthy day and a dead one.
+  assert.doesNotMatch(v.summary, /^0 of 18 source\(s\) unreachable/);
+});
+
+test('a genuinely good day — 2026-09-07 — is still ok, and still says how big it was', () => {
+  const v = classifyIngest({ exitCode: 0, stdout: GOOD_0907, dnsOk: true });
+  assert.equal(v.kind, 'ok');
+  assert.equal(v.retryable, false);
+  assert.match(v.summary, /93 source\(s\) attempted, 129 skipped as given-up \(222 enabled in config\)/);
+});
+
+test('2026-09-08 is NOT the green baseline — it was already starving behind an "all steps ok"', () => {
+  // Pinned as a fixture on purpose. It is the obvious "last known good run" to
+  // reach for, and adopting it as the passing case would have written
+  // "keep letting this through" into the spec.
+  const v = classifyIngest({ exitCode: 0, stdout: STARVED_0908_TRAP, dnsOk: true });
+  assert.equal(v.kind, 'starved');
+  assert.match(v.summary, /github 0\/12, youtube 0\/20/);
+});
+
+test('a platform the user turned off is not starvation — nothing is enabled there', () => {
+  // The reverse direction. Turning youtube off must not red the run forever,
+  // or the rule gets disabled and takes the real detection with it.
+  const v = classifyIngest({ exitCode: 0, stdout: PLATFORM_TURNED_OFF, dnsOk: true });
+  assert.equal(v.kind, 'ok');
+  assert.equal(parseIngestOutput(PLATFORM_TURNED_OFF).platforms.some((p) => p.platform === 'youtube'), false);
+});
+
+test('every source retired is starved, not the 0-of-0 pass that "enabled and not given up" would give', () => {
+  const c = parseIngestOutput(EVERY_SOURCE_RETIRED);
+  assert.equal(c.attempted, 0);
+  assert.equal(c.enabled, 25, 'the config still asks for 25; giving up on them did not un-configure them');
+  const v = classifyIngest({ exitCode: 0, stdout: EVERY_SOURCE_RETIRED, dnsOk: true });
+  assert.equal(v.kind, 'starved');
+  assert.match(v.summary, /rss 0\/25/);
+});
+
+test('a retryable blackout still outranks starvation — the retry that fixes a DarkWake must survive', () => {
+  // BLACKOUT has `youtube: skipping 20` and no youtube source line, so it is
+  // starved as well. Classifying it `starved` would make it non-retryable and
+  // delete the recovery this module was built for.
+  const v = classifyIngest({ exitCode: 1, stdout: BLACKOUT, dnsOk: false });
+  assert.equal(v.kind, 'host-network');
+  assert.equal(v.retryable, true);
+  assert.match(v.summary, /24 source\(s\) attempted, 35 skipped as given-up \(59 enabled in config\)/);
+});
+
+test('exit 0 with output the parser cannot read is unrecognized, never ok', () => {
+  // Otherwise a format change disables the starvation check silently: no lines
+  // parsed means nothing enabled means nothing starved means green.
+  const v = classifyIngest({ exitCode: 0, stdout: 'ingest-follow.mjs rewritten, new output\n', dnsOk: true });
   assert.equal(v.kind, 'unrecognized');
   assert.equal(v.retryable, false);
 });

@@ -51,6 +51,22 @@ ${sources(22, '✓')}
 22 inserted, 0 already known, 0 failed
 `;
 
+/* The 2026-09-13 shape: ingest exits 0 because the 18 sources it still tries
+ * all answered, while rss/github/youtube fetched from none of their 57. The
+ * `·` lines are the real ones, abbreviated. */
+const STARVED = `Ingesting [rss, github, youtube, reddit] · limit 6/source
+
+· rss: skipping 25 given-up source(s): Simon Willison, Latent Space (swyx), ...
+· github: skipping 12 given-up source(s): Patrick Collison, John Collison, ...
+· youtube: skipping 20 given-up source(s): Andrej Karpathy, AI Engineer, ...
+· reddit: skipping 12 given-up source(s): r/ClaudeAI, r/PromptEngineering, ...
+· reddit: 14 source(s)
+${sources(14, '✓')}
+
+106 item(s) staged.
+71 inserted, 35 already known, 0 failed
+`;
+
 /* A fake step: appends its name to calls.log, prints the scripted stdout for
  * this invocation, exits with the scripted code. */
 function fakeStep(name, plan) {
@@ -69,6 +85,7 @@ process.exit(step.code || 0);
  * a test can assert on what the ledger was actually told. */
 const FAKE_JOB_RUNS = `import { appendFileSync } from 'node:fs';
 const [cmd, ...rest] = process.argv.slice(2);
+appendFileSync(process.env.FAKE_JOB_RUNS_CALLS, JSON.stringify([cmd, ...rest]) + '\\n');
 if (cmd === 'start') { console.log('9001'); }
 else if (cmd === 'finish') { appendFileSync(process.env.FAKE_LEDGER, JSON.stringify(rest) + '\\n'); }
 `;
@@ -79,8 +96,10 @@ function runPipeline({ ingestPlan, probeHost = 'localhost', env = {} } = {}) {
   mkdirSync(sb, { recursive: true });
   const calls = join(dir, 'calls.log');
   const ledger = join(dir, 'ledger.log');
+  const jobRunsCalls = join(dir, 'job-runs-calls.log');
   writeFileSync(calls, '');
   writeFileSync(ledger, '');
+  writeFileSync(jobRunsCalls, '');
 
   writeFileSync(join(sb, 'ingest-follow.mjs'), fakeStep('ingest', ingestPlan));
   writeFileSync(join(sb, 'auto-summarize.mjs'), fakeStep('auto-summarize', [{ code: 0 }]));
@@ -107,6 +126,7 @@ function runPipeline({ ingestPlan, probeHost = 'localhost', env = {} } = {}) {
         FEED_DAILY_START: '00:00',
         FAKE_CALLS: calls,
         FAKE_LEDGER: ledger,
+        FAKE_JOB_RUNS_CALLS: jobRunsCalls,
         ...env,
       },
     });
@@ -117,6 +137,7 @@ function runPipeline({ ingestPlan, probeHost = 'localhost', env = {} } = {}) {
 
   const callLines = readFileSync(calls, 'utf8').split('\n').filter(Boolean);
   const ledgerRows = readFileSync(ledger, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  const jobRunsRows = readFileSync(jobRunsCalls, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
   return {
     dir,
     code,
@@ -124,6 +145,7 @@ function runPipeline({ ingestPlan, probeHost = 'localhost', env = {} } = {}) {
     ingestCalls: callLines.filter((l) => l === 'ingest').length,
     calls: callLines,
     ledger: ledgerRows,
+    jobRuns: jobRunsRows,
     stamp: () => JSON.parse(readFileSync(join(dir, 'state', 'last-run.json'), 'utf8')),
     cleanup: () => rmSync(dir, { recursive: true, force: true }),
   };
@@ -221,6 +243,65 @@ test('output the parser no longer understands is NOT retried and says so out lou
   assert.equal(r.ingestCalls, 1);
   assert.match(r.ledger.at(-1)[3], /ingest \[unrecognized\]/);
   assert.match(r.ledger.at(-1)[3], /diverged/);
+  r.cleanup();
+});
+
+/* ---------- injection 4: a starving sweep that ingest itself calls a success ---------- */
+
+test('a sweep that fetched nothing from three of four platforms exits 1, however happy ingest was', () => {
+  // THE ACCEPTANCE TEST. On 2026-09-13 this exact input produced exit 0 and
+  // "=== feed-daily done … all steps ok ===". ingest's exit code only reports
+  // on the sources it chose to try, and it chooses fewer every time one is
+  // given up on, so the green gets cheaper as the pipeline starves.
+  const r = runPipeline({ ingestPlan: [{ out: STARVED, code: 0 }] });
+  assert.equal(r.code, 1, 'a run that fetched nothing from rss, github and youtube is not a pass');
+  assert.equal(r.ingestCalls, 1, 'starvation is not retryable — no wait revives a retired source');
+  assert.match(r.stdout, /step ingest FAILED \(exit 0, but the guard's verdict is \[starved\]\)/);
+  assert.doesNotMatch(r.stdout, /all steps ok/);
+  r.cleanup();
+});
+
+test('the starved run still gets a report out, and the ledger says what was and was not fetched', () => {
+  const r = runPipeline({ ingestPlan: [{ out: STARVED, code: 0 }] });
+  const [, status, countsJson, summary] = r.ledger.at(-1);
+  assert.equal(status, 'failed');
+  assert.match(summary, /ingest \[starved\]/);
+  assert.match(summary, /rss 0\/25, github 0\/12, youtube 0\/20/);
+  // Both numbers in the sentence: 14-of-20 and 14-of-83 are the readings that
+  // have to be told apart, and the old line printed only the first.
+  assert.match(summary, /14 source\(s\) attempted, 69 skipped as given-up \(83 enabled in config\)/);
+  assert.equal(JSON.parse(countsJson).ingest_kind, 'starved');
+  // A failed ingest must not cancel the later steps — see the header.
+  assert.deepEqual(r.calls, ['ingest', 'auto-summarize', 'daily-report']);
+  r.cleanup();
+});
+
+/* ---------- the blackout refund ---------- */
+
+test('a host-network round refunds its source failures, so a local outage cannot retire sources', () => {
+  const r = runPipeline({
+    ingestPlan: [{ out: ALL_DOWN, code: 1 }],
+    probeHost: 'nx-feed-daily-test.invalid',
+  });
+  const rollbacks = r.jobRuns.filter((c) => c[0] === 'rollback-ingest-failures');
+  assert.equal(rollbacks.length, 3, 'one refund per blackout attempt, not one per run');
+  // The window must be an instant job-runs.js can compare against
+  // ingest_failures.last_attempt, which is Date#toISOString.
+  for (const [, since] of rollbacks) {
+    assert.match(since, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.000Z$/);
+  }
+  r.cleanup();
+});
+
+test('a source-side failure is NOT refunded — that round really was evidence about those sources', () => {
+  const r = runPipeline({ ingestPlan: [{ out: ONE_DOWN, code: 1 }] });
+  assert.deepEqual(r.jobRuns.filter((c) => c[0] === 'rollback-ingest-failures'), []);
+  r.cleanup();
+});
+
+test('a clean run refunds nothing', () => {
+  const r = runPipeline({ ingestPlan: [{ out: ALL_FINE, code: 0 }] });
+  assert.deepEqual(r.jobRuns.filter((c) => c[0] === 'rollback-ingest-failures'), []);
   r.cleanup();
 });
 

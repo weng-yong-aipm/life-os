@@ -49,15 +49,33 @@ export const RETRY_DELAYS = [0, 30, 120];
  */
 export function parseIngestOutput(stdout) {
   const lines = String(stdout || '').split('\n');
-  let attempted = 0;
   let staged = null;
   let inserted = 0;
   let storeFailed = 0;
   const unreachableSources = [];
   const reachableSources = new Set();
+  /* Per platform, the TWO halves of the configured total. Neither can be
+   * derived from the other, and the run-wide sum of both is the only
+   * denominator that does not shrink as sources are abandoned — see `enabled`
+   * at the bottom of this function. */
+  const perPlatform = new Map();
+  const bucket = (name) => {
+    if (!perPlatform.has(name)) perPlatform.set(name, { platform: name, attempted: 0, skippedGivenUp: 0 });
+    return perPlatform.get(name);
+  };
 
   for (const raw of lines) {
     const line = raw.replace(/\s+$/, '');
+
+    // "· rss: skipping 25 given-up source(s): Simon Willison, ..." — the OTHER
+    // half of the denominator. These sources are enabled in the config and
+    // were not tried, because ingest_failures.gave_up is 1 for them. Counting
+    // them as attempted would be wrong (see the next branch); not counting
+    // them at ALL is what let 2026-09-13 report "all steps ok" on a run that
+    // fetched 18 of 221 configured sources and nothing whatsoever from rss,
+    // github or youtube.
+    const skipM = line.match(/^· (.+?): skipping (\d+) given-up source\(s\): /);
+    if (skipM) { bucket(skipM[1]).skippedGivenUp += Number(skipM[2]); continue; }
 
     // "· rss: 21 source(s)" — the per-platform denominator.
     //
@@ -71,8 +89,8 @@ export function parseIngestOutput(stdout) {
     // not assumed: dropping either one alone still excludes the real line, so
     // the first test in feed-ingest-guard.test.js pins the number 24 rather
     // than the pattern.
-    const attemptedM = line.match(/^· .+?: (\d+) source\(s\)$/);
-    if (attemptedM) { attempted += Number(attemptedM[1]); continue; }
+    const attemptedM = line.match(/^· (.+?): (\d+) source\(s\)$/);
+    if (attemptedM) { bucket(attemptedM[1]).attempted += Number(attemptedM[2]); continue; }
 
     const failM = line.match(/^ {2}✗ (.+?) \((.+?)\): (.*)$/);
     if (failM) { unreachableSources.push({ name: failM[1], platform: failM[2], reason: failM[3] }); continue; }
@@ -87,9 +105,33 @@ export function parseIngestOutput(stdout) {
     if (storeM) { inserted = Number(storeM[1]); storeFailed = Number(storeM[3]); continue; }
   }
 
+  /* `enabled` is attempted + skipped-given-up, per platform and run-wide. That
+   * is the count of sources this run was CONFIGURED to fetch, and it is the
+   * denominator every starvation judgement below uses.
+   *
+   * Why not "enabled and not given up" (i.e. `attempted`): that denominator
+   * shrinks by exactly as much as the numerator every time a source is
+   * abandoned, so a platform whose sources have all been given up reads 0/0 —
+   * and 0/0 is not a failure under any rule you can write. That is the
+   * definition that makes starvation permanently invisible, which is the whole
+   * defect. `enabled` is independent of gave_up and only ever changes when the
+   * config does.
+   *
+   * A platform the user actually turned off prints neither line, so it is
+   * absent from the map entirely and `enabled` is 0 — deliberately NOT the
+   * same thing as a platform whose every source was abandoned. */
+  const platforms = [...perPlatform.values()].map((p) => ({ ...p, enabled: p.attempted + p.skippedGivenUp }));
+  const attempted = platforms.reduce((n, p) => n + p.attempted, 0);
+  const skippedGivenUp = platforms.reduce((n, p) => n + p.skippedGivenUp, 0);
+
   return {
     recognized: staged !== null,
     attempted,
+    skippedGivenUp,
+    enabled: attempted + skippedGivenUp,
+    platforms,
+    // Enabled in config, none of them tried. The lower bound `attempted` never had.
+    starvedPlatforms: platforms.filter((p) => p.enabled > 0 && p.attempted === 0),
     staged: staged ?? 0,
     inserted,
     storeFailed,
@@ -101,8 +143,7 @@ export function parseIngestOutput(stdout) {
 
 /* ---------- the verdict ----------
  *
- * PURE. Four outcomes, and the whole point is that the middle two are not the
- * same event:
+ * PURE. Five outcomes, and the whole point is that they are not the same event:
  *
  *   host-network    nothing at all got through: some sources failed and not one
  *                   returned an item. 22 sources do not go down in the same
@@ -114,20 +155,43 @@ export function parseIngestOutput(stdout) {
  *   store-failures  items were fetched but could not be written. The network
  *                   reached the sources; the pipeline is what broke. NOT
  *                   retryable, and must not be relabelled as a network fault.
+ *   starved         a platform that has sources enabled in the config fetched
+ *                   from NONE of them, because every one has been given up on.
+ *                   Not retryable — no wait fixes it, a human has to revive the
+ *                   sources — but the run is NOT ok and must exit non-zero.
  *   unrecognized    the parser no longer understands ingest's output. Say so;
  *                   do not guess.
  *
  * `dnsOk` is corroboration, never the decision: a probe host can be blocked by
  * policy on a perfectly good network, so letting it gate anything would invent
  * a new way for a working run to be skipped. It only sharpens the sentence.
+ *
+ * WHY `starved` IS CHECKED ON A ZERO EXIT CODE TOO (2026-09-13). ingest exits 0
+ * whenever the sources it actually TRIED answered, and it tries only the ones
+ * not yet given up. So the fewer sources survive, the easier the green is to
+ * get: the 2026-09-13 run fetched 18 of 221 configured sources — rss 0/25,
+ * github 0/12, youtube 0/20, all three platforms silent — and this function
+ * returned `ok` with the sentence "0 of 18 source(s) unreachable". A success
+ * criterion with no lower bound on the denominator reports a perfect green at
+ * the exact moment the pipeline has stopped working. Every verdict below now
+ * prints BOTH the attempted count and the skipped-given-up count, because
+ * "18 of 24" and "18 of 221" are the readings that have to be told apart and
+ * the old one-number sentence printed them identically.
+ *
+ * ORDER: `host-network` outranks `starved` on a failing run. A blackout is
+ * acute and RETRYABLE, and demoting it to the non-retryable `starved` would
+ * delete the retry that recovers a DarkWake morning. Starvation is chronic; it
+ * will still be there on the next run, and it is reported the moment the acute
+ * fault clears.
  */
 export function classifyIngest({ exitCode, stdout, dnsOk = null }) {
   const c = parseIngestOutput(stdout);
 
-  if (Number(exitCode) === 0) {
-    return { kind: 'ok', retryable: false, counts: c, summary: ingestCountLine(c) };
-  }
-
+  /* A run whose output could not be read cannot claim anything — including the
+   * negative claim "no platform starved". Before this, an exit code of 0 short-
+   * circuited straight to `ok`, which on a parser divergence would have made
+   * the starvation check silently inert (no lines parsed → nothing enabled →
+   * nothing starved → green), i.e. a second way to get the same false green. */
   if (!c.recognized) {
     return {
       kind: 'unrecognized',
@@ -137,6 +201,12 @@ export function classifyIngest({ exitCode, stdout, dnsOk = null }) {
         + "scripts/feed-ingest-guard.mjs's parser and second-brain's ingest-follow.mjs output have "
         + 'diverged, so this run was NOT classified. Fix the parser before trusting the next verdict.',
     };
+  }
+
+  const starved = starvedVerdict(c);
+
+  if (Number(exitCode) === 0) {
+    return starved || { kind: 'ok', retryable: false, counts: c, summary: ingestCountLine(c) };
   }
 
   if (c.storeFailed > 0) {
@@ -161,21 +231,55 @@ export function classifyIngest({ exitCode, stdout, dnsOk = null }) {
       counts: c,
       summary: `host network not ready — 0 of ${c.attempted} attempted source(s) returned anything `
         + `(${c.unreachable} unreachable${silent ? `, ${silent} silent` : ''}); ${probe}. `
-        + `This is one machine, not ${c.unreachable} sources failing in the same second.`,
+        + `This is one machine, not ${c.unreachable} sources failing in the same second. `
+        + scaleLine(c),
     };
   }
 
-  return {
+  return starved || {
     kind: 'source-failures',
     retryable: false,
     counts: c,
     summary: `${c.unreachable} of ${c.attempted} source(s) unreachable; the rest answered `
-      + `(${c.staged} item(s) staged, ${c.inserted} inserted). Source-side — the whole sweep is not retried.`,
+      + `(${c.staged} item(s) staged, ${c.inserted} inserted). Source-side — the whole sweep is not retried. `
+      + scaleLine(c),
   };
 }
 
+/* The lower bound on the denominator, as a verdict or null.
+ *
+ * A platform is starved when it has sources enabled in the config and tried
+ * NONE of them. Judged per platform rather than run-wide on purpose: on
+ * 2026-09-13 the run-wide numbers were 18 attempted and 106 items staged —
+ * healthy-looking totals that reddit alone produced while three platforms
+ * contributed nothing at all. A run-wide threshold would have passed it. */
+function starvedVerdict(c) {
+  if (!c.starvedPlatforms.length) return null;
+  const detail = c.starvedPlatforms.map((p) => `${p.platform} 0/${p.enabled}`).join(', ');
+  return {
+    kind: 'starved',
+    // No wait fixes this; the sources have to be revived by hand. Retrying
+    // would only spend the day's attempt budget on the same answer.
+    retryable: false,
+    counts: c,
+    summary: `${c.starvedPlatforms.length} platform(s) fetched from NONE of their configured sources `
+      + `(${detail}) — every source there has been given up on. `
+      + scaleLine(c)
+      + '. A sweep that fetched nothing at all from a platform is not a green run, however well the '
+      + 'few sources it still tries are doing.',
+  };
+}
+
+/* BOTH numbers, always. "18 of 24" and "18 of 221" are the two readings that
+ * have to be told apart, and one number cannot tell them apart. */
+function scaleLine(c) {
+  return `${c.attempted} source(s) attempted, ${c.skippedGivenUp} skipped as given-up `
+    + `(${c.enabled} enabled in config)`;
+}
+
 function ingestCountLine(c) {
-  return `${c.unreachable} of ${c.attempted} source(s) unreachable, ${c.staged} item(s) staged, ${c.inserted} inserted`;
+  return `${c.unreachable} of ${c.attempted} source(s) unreachable, ${c.staged} item(s) staged, `
+    + `${c.inserted} inserted; ${scaleLine(c)}`;
 }
 
 /* ---------- the once-a-day gate ----------

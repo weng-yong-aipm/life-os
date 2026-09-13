@@ -162,6 +162,13 @@ for delay in $RETRY_DELAYS; do
   DNS_OK=1
   "$NODE" "$GUARD" net-probe "$PROBE_HOST" >/dev/null 2>&1 || DNS_OK=0
 
+  # The instant this attempt began, in exactly the format job-runs.js writes
+  # into ingest_failures.last_attempt (Date#toISOString), so the two compare as
+  # strings. `.000Z` rather than `Z`: "…:07Z" sorts AFTER "…:07.412Z" because
+  # 'Z' > '.', which would drop every row written in this very second — the
+  # rows this window exists to catch.
+  ATTEMPT_SINCE="$(date -u +%Y-%m-%dT%H:%M:%S).000Z"
+
   # NEVER pipe this into tee: a pipeline reports the LAST command's status, and
   # ingest's exit code is half of the verdict. File, then cat.
   "$NODE" "$SB/scripts/ingest-follow.mjs" all > "$INGEST_OUT" 2>&1
@@ -184,11 +191,33 @@ for delay in $RETRY_DELAYS; do
   INGEST_VERDICT="$VERDICT"
   echo "ingest verdict [$KIND]: $VERDICT"
 
+  # A blackout round taught us NOTHING about any individual source, so it must
+  # not count against any of them. ingest-follow.mjs has already bumped
+  # ingest_failures.attempts for every source it tried — it cannot know the
+  # cause was this machine, because the verdict that establishes it is computed
+  # here, afterwards. So the refund happens here, scoped to the rows this
+  # attempt touched. Without it, five DarkWake mornings retire every source in
+  # the config: 204 of them are already retired, and the 2026-09-11 window
+  # alone accounts for 38 of those. See rollbackIngestFailuresSince().
+  if [ "$KIND" = "host-network" ]; then
+    "$NODE" "$JOB_RUNS" rollback-ingest-failures "$ATTEMPT_SINCE" \
+      || echo "WARNING: could not refund this blackout's source failures — they still count toward give-up"
+  fi
+
   [ "$RETRYABLE" = "1" ] || break
 done
 
 if [ "$INGEST_CODE" -ne 0 ]; then
   echo "!! step ingest FAILED (exit $INGEST_CODE after $INGEST_ATTEMPTS attempt(s)) — continuing with the remaining steps"
+  FAILED="$FAILED ingest"
+elif [ "$INGEST_KIND" != "ok" ]; then
+  # ingest's own exit code only reports on the sources it CHOSE to try, and it
+  # chooses fewer of them every time one is given up on — so it goes to zero
+  # exactly as the pipeline starves. On 2026-09-13 it exited 0 having fetched
+  # nothing whatsoever from rss, github and youtube, and this script printed
+  # "all steps ok". The guard's verdict is the second book: any kind other than
+  # `ok` fails the run even when ingest was happy. See classifyIngest().
+  echo "!! step ingest FAILED (exit 0, but the guard's verdict is [$INGEST_KIND]) — continuing with the remaining steps"
   FAILED="$FAILED ingest"
 fi
 
