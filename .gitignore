@@ -14,3 +14,7 @@ feed/synthesis.test.js
 scripts/synthesize.mjs
 learning/douyin-import.js
 learning/douyin-import.test.js
+
+# 记忆索引归档提名报告：逐字包含 MEMORY.md 的索引行（公司项目名/人名都在里面），
+# 而这个仓库是公开的。报告只该留在本机。
+docs/memory-reports/
