@@ -12,4 +12,4 @@ export const SUPABASE_ANON_KEY = 'sb_publishable_0dWK0VYkIoRW7F5ehhYrlQ_bYGkiZIa
 
 // Web Push VAPID public key for the nightly check-in. Public by design: it only
 // lets a browser subscribe; the private half lives in Supabase secrets.
-export const VAPID_PUBLIC_KEY = '';
+export const VAPID_PUBLIC_KEY = 'BAXqc7BVYPJ-KK6Y13X3TkL7tmKqU38MdCXZKs0x4AYNoZkndJ0rwjzSLxoF9R7EOeurfI2ZfXRUA8RXskzS7WA';
