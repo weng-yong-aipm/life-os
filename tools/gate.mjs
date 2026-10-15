@@ -39,28 +39,26 @@ export function localDateStr(d) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-/* Days back from `today`, inclusive, where all three of meal/sleep/learning
- * have at least one row. `mealDates` is expected to hold only meals with a
- * non-null image_path — the spec's done-check says "≥1 meal row where
- * image_path is not null", so a text-only meal must not extend the streak.
- *
- * Today counts. A day that is only half over therefore reads as a break, and
- * the streak reads 0 until dinner is logged. That is the honest reading of
- * "seven consecutive days" and it costs nothing while the streak is 0/7; if it
- * ever becomes annoying at 10am, that is a signal the habit exists, which is
- * the whole point of the gate. */
-export function countStreak(today, mealDates, sleepDates, learningDates) {
-  const meals = new Set(mealDates);
-  const sleeps = new Set(sleepDates);
-  const learns = new Set(learningDates);
+/* The rule as of 2026-10-15 (owner decision, unified-hub spec §3): the gate
+ * counts the ONE daily action the check-in loop asks for — a tap on the 21:00
+ * push, either answer. The meal+sleep+learning streak it replaces sat at 0/7
+ * for two months; the four modules it measured are frozen, not deleted.
+ * Distinct days in the last 7 local days, today included. */
+export const TAP_TARGET = 5;
+export function countTappedDays(today, checkinDays) {
+  const days = new Set(checkinDays);
   const cursor = new Date(`${today}T12:00:00`); // midday: immune to DST shifts
-  let streak = 0;
-  for (;;) {
-    const day = localDateStr(cursor);
-    if (!meals.has(day) || !sleeps.has(day) || !learns.has(day)) return streak;
-    streak++;
+  let n = 0;
+  for (let i = 0; i < 7; i++) {
+    if (days.has(localDateStr(cursor))) n++;
     cursor.setDate(cursor.getDate() - 1);
   }
+  return n;
+}
+
+/* Frozen modules are still probed and printed, never blocking. */
+export function effectiveVerdict(mod, verdict) {
+  return mod.frozen ? 'FROZEN' : verdict;
 }
 
 /* One probed table -> one verdict. The `missing` / `unreachable` split is the
@@ -88,7 +86,7 @@ export function moduleVerdict(verdicts) {
 }
 
 export function gatePasses(moduleVerdicts) {
-  return moduleVerdicts.length > 0 && moduleVerdicts.every((v) => v === 'OK');
+  return moduleVerdicts.length > 0 && moduleVerdicts.every((v) => v === 'OK' || v === 'FROZEN');
 }
 
 /* ------------------------------------------------------------------- the I/O
@@ -113,16 +111,16 @@ function loadEnv() {
 /* Modules as the human built them, not as the database groups them. The gate
  * speaks in the names he uses when he decides what to build next. */
 const MODULES = [
-  { name: 'Training', tables: ['mesocycles', 'sessions', 'session_exercises', 'sets'] },
-  { name: 'Finance', tables: ['receipts', 'expenses', 'work_hours'] },
-  { name: 'Health', tables: ['meals', 'workouts', 'sleep'] },
-  { name: 'Capture', tables: ['capture_queue'] },
+  { name: 'Check-in', tables: ['checkins'] },
+  { name: 'Training', tables: ['mesocycles', 'sessions', 'session_exercises', 'sets'], frozen: true },
+  { name: 'Finance', tables: ['receipts', 'expenses', 'work_hours'], frozen: true },
+  { name: 'Health', tables: ['meals', 'workouts', 'sleep'], frozen: true },
+  { name: 'Capture', tables: ['capture_queue'], frozen: true },
 ];
 
-const DONE_CHECK = `"Done-check: seven consecutive days with >=1 meal row where image_path is not
- null and a rendered thumbnail, >=1 sleep row, >=1 learning row - all entered
- from the phone. If the streak does not happen, stop and fix the friction
- before building anything else."`;
+const DONE_CHECK = `"2026-10-15: the gate counts taps on the nightly check-in push. Phase 2
+ (the hub page) starts when >=5 of the last 7 days have a tap. Training,
+ Finance, Health and Capture are frozen - shown here, not blocking."`;
 
 /* Exact row count via PostgREST's count=exact + a zero-width range, so the
  * body stays empty however many rows there are. content-range is `*​/0` for an
@@ -185,26 +183,21 @@ async function main() {
   for (const mod of MODULES) {
     const probes = await Promise.all(mod.tables.map((t) => probeTable(sb, headers, t)));
     const verdicts = probes.map(tableVerdict);
-    results.push({ ...mod, probes, verdict: moduleVerdict(verdicts) });
+    results.push({ ...mod, probes, verdict: effectiveVerdict(mod, moduleVerdict(verdicts)) });
   }
 
   let streak = null;
   let streakError = null;
   try {
-    const [meals, sleeps, learns] = await Promise.all([
-      // image_path=not.is.null is the spec's wording, enforced server-side.
-      fetchDates(sb, headers, 'meals?select=eaten_at&image_path=not.is.null&order=eaten_at.desc&limit=2000', 'eaten_at'),
-      fetchDates(sb, headers, 'sleep?select=slept_on&order=slept_on.desc&limit=2000', 'slept_on'),
-      fetchDates(sb, headers, 'learning_sessions?select=learned_on&order=learned_on.desc&limit=2000', 'learned_on'),
-    ]);
-    streak = countStreak(today, meals, sleeps, learns);
+    const days = await fetchDates(sb, headers, 'checkins?select=day&order=day.desc&limit=60', 'day');
+    streak = countTappedDays(today, days);
   } catch (err) {
     streakError = err.message;
   }
 
   console.log('\nMODULES  (rule: no new module while an existing module has zero production rows)\n');
   for (const r of results) {
-    const mark = r.verdict === 'OK' ? 'PASS' : 'FAIL';
+    const mark = r.verdict === 'OK' ? 'PASS' : r.verdict === 'FROZEN' ? 'FROZEN' : 'FAIL';
     console.log(`  [${mark}] ${r.name.padEnd(9)} ${r.verdict}`);
     for (const p of r.probes) {
       const v = tableVerdict(p);
@@ -213,23 +206,23 @@ async function main() {
     }
   }
 
-  console.log('\nLOGGING STREAK');
+  console.log('\nCHECK-IN TAPS');
   if (streakError) {
     console.log(`  UNKNOWN - the streak query failed: ${streakError}`);
     console.log('  An unmeasured streak is not a passing streak.');
   } else {
-    console.log(`  ${streak} / 7 consecutive days with a photo meal + sleep + learning row.`);
+    console.log(`  ${streak} / 7 days with a check-in tap (need ${TAP_TARGET}).`);
   }
 
-  const offenders = results.filter((r) => r.verdict !== 'OK');
-  const pass = gatePasses(results.map((r) => r.verdict)) && streakError === null && streak >= 7;
+  const offenders = results.filter((r) => r.verdict !== 'OK' && r.verdict !== 'FROZEN');
+  const pass = gatePasses(results.map((r) => r.verdict)) && streakError === null && streak >= TAP_TARGET;
 
-  console.log('\nWHY THIS GATE EXISTS - his own words, 2026-08-05:\n');
+  console.log('\nWHY THIS GATE EXISTS - owner decision, 2026-10-15:\n');
   console.log(DONE_CHECK);
 
   console.log('\n' + '='.repeat(72));
   if (pass) {
-    console.log('GATE PASSES. Every built module has production rows and the streak is >= 7.');
+    console.log(`GATE PASSES. Every unfrozen module has production rows and taps are >= ${TAP_TARGET}/7.`);
     process.exit(0);
   }
   if (offenders.length) {
@@ -237,12 +230,9 @@ async function main() {
   } else {
     console.log('GATE FAILS.');
   }
-  if (streakError) console.log(`Streak: UNKNOWN (query failed) - required 7.`);
-  else console.log(`Streak: ${streak} - required 7.`);
+  if (streakError) console.log(`Taps: UNKNOWN (query failed) - required ${TAP_TARGET}.`);
+  else console.log(`Taps: ${streak} - required ${TAP_TARGET}.`);
   console.log('Build nothing new until the streak happens. Fix the friction instead.');
-  console.log('\nNot checked here, and not claimed: whether a thumbnail actually RENDERS,');
-  console.log('and whether the rows were entered FROM THE PHONE. The database cannot');
-  console.log('answer either. Passing this gate is necessary, not sufficient.');
   process.exit(1);
 }
 
