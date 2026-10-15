@@ -12,7 +12,7 @@
  * direction — missing a reachable file, or naming a file that no longer exists.
  * install() uses addAll(), which is atomic: one stale entry 404s and the whole
  * service worker never activates, so a wrong entry is as fatal as a missing one. */
-const CACHE = 'life-os-v10';
+const CACHE = 'life-os-v11';
 const ASSETS = [
   './',
   './index.html',
@@ -86,6 +86,7 @@ const ASSETS = [
   './settings/settings-ui.js',
   './settings/settings.js',
   './settings/settings-repo.js',
+  './settings/push-subscribe.js',
   './training/index.html',
   './training/log.html',
   './training/plan.html',
@@ -137,4 +138,54 @@ self.addEventListener('fetch', (e) => {
        * present for that reason. */
       .catch(() => caches.match(e.request, { ignoreSearch: true }))
   );
+});
+
+/* Nightly check-in push. docs/superpowers/specs/2026-10-15-unified-hub-design.md
+ * The Done / Not done buttons answer from the notification itself: the app is
+ * never opened, which is the whole point — every earlier design that needed
+ * the app opened collected zero rows. */
+self.addEventListener('push', (e) => {
+  let msg = null;
+  try { msg = e.data ? e.data.json() : null; } catch { msg = null; }
+  if (!msg) return;
+  e.waitUntil(self.registration.showNotification(msg.title, {
+    body: msg.body, tag: msg.tag, actions: msg.actions || [], data: msg.data || {},
+  }));
+});
+
+/* Inline copy of classifyCheckinResult from settings/push-subscribe.js. */
+function classifyCheckinResult(r) {
+  if (typeof r !== 'number') return 'retry';
+  if (r >= 200 && r < 300) return 'ok';
+  if (r >= 400 && r < 500) return 'expired';
+  return 'retry';
+}
+
+self.addEventListener('notificationclick', (e) => {
+  const n = e.notification;
+  const d = n.data || {};
+  n.close();
+  if ((e.action === 'done' || e.action === 'not_done') && d.checkinUrl) {
+    e.waitUntil(
+      fetch(d.checkinUrl, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ day: d.day, milestone_id: d.milestone_id, done: e.action === 'done', token: d.token }),
+      })
+        .then((res) => classifyCheckinResult(res.status), (err) => classifyCheckinResult(err))
+        .then((kind) => {
+          if (kind === 'retry') {
+            return self.registration.showNotification('没记上，再点一次', {
+              body: n.body, tag: n.tag, actions: [{ action: 'done', title: '做了' }, { action: 'not_done', title: '没做' }], data: d,
+            });
+          }
+          if (kind === 'expired') {
+            return self.registration.showNotification('这条提醒已过期', { body: '等今晚 21:00 的新提醒', data: { open: './plan/' } });
+          }
+          return undefined;
+        })
+    );
+    return;
+  }
+  e.waitUntil(self.clients.openWindow(d.open || './plan/'));
 });

@@ -9,3 +9,7 @@
 // or writes their own rows. Leave both blank to run in local-only mode.
 export const SUPABASE_URL = 'https://cfbfiazzvbedsdgwpujs.supabase.co';
 export const SUPABASE_ANON_KEY = 'sb_publishable_0dWK0VYkIoRW7F5ehhYrlQ_bYGkiZIa';
+
+// Web Push VAPID public key for the nightly check-in. Public by design: it only
+// lets a browser subscribe; the private half lives in Supabase secrets.
+export const VAPID_PUBLIC_KEY = '';
