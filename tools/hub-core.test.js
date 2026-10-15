@@ -130,3 +130,12 @@ test('parseCheckinBody accepts only the exact shape', () => {
   assert.equal(parseCheckinBody({ ...ok, milestone_id: 'x'.repeat(65) }), null);
   assert.equal(parseCheckinBody(null), null);
 });
+
+test('syncNotice: a first-run parse failure shows the error, not "never synced"', () => {
+  // goal-sync writes {ok:false, error} without synced_at when the very first
+  // run fails — exactly when the owner has just typed the table for the first time.
+  assert.equal(
+    syncNotice({ status: { synced_at: null, ok: false, error: 'line 9: due "2026-13-01" is not a real YYYY-MM-DD date' }, now: NOW }),
+    '目标数据同步失败：line 9: due "2026-13-01" is not a real YYYY-MM-DD date',
+  );
+});

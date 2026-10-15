@@ -56,21 +56,40 @@ async function onSaveHidden(e) {
 async function initPush() {
   const btn = document.getElementById('push-enable');
   const status = document.getElementById('push-status');
-  const supported = 'serviceWorker' in navigator && 'PushManager' in window && Boolean(VAPID_PUBLIC_KEY);
-  const reg = supported ? await navigator.serviceWorker.ready : null;
+  const configured = Boolean(VAPID_PUBLIC_KEY);
+  const supported = 'serviceWorker' in navigator && 'PushManager' in window;
+  // Register here too: only app.js registers the worker, and `ready` never
+  // resolves on a fresh browser that opened this page first. Same URL and
+  // scope as app.js, so this is a no-op once the worker exists.
+  const reg = supported && configured
+    ? await navigator.serviceWorker.register('../service-worker.js').then(() => navigator.serviceWorker.ready)
+    : null;
+  /* "On" means the browser holds a subscription AND its row is in the
+   * database. The browser alone said 已开启 forever after a failed insert or a
+   * 410 cleanup, while nudge found no subscription and sent nothing. */
+  const savedRow = async (sub) => {
+    const c = await getClient();
+    if (!c || !sub) return false;
+    const { data, error } = await c.from('push_subscriptions').select('id').eq('endpoint', sub.endpoint).maybeSingle();
+    return !error && Boolean(data);
+  };
   const show = async () => {
-    const subscribed = Boolean(reg && (await reg.pushManager.getSubscription()));
-    status.textContent = pushStateLabel({ supported, permission: supported ? Notification.permission : 'default', subscribed });
-    btn.disabled = !supported || subscribed;
+    const sub = reg ? await reg.pushManager.getSubscription() : null;
+    const saved = await savedRow(sub);
+    status.textContent = pushStateLabel({
+      supported, configured, permission: supported ? Notification.permission : 'default', subscribed: Boolean(sub), saved,
+    });
+    btn.disabled = !reg || (Boolean(sub) && saved);
   };
   await show();
   btn.addEventListener('click', async () => {
     try {
+      const c = await getClient();
+      const user = c ? (await c.auth.getUser()).data.user : null;
+      if (!user) throw new Error('请先登录');
       if ((await Notification.requestPermission()) !== 'granted') return show();
       const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
       const j = sub.toJSON();
-      const c = await getClient();
-      if (!c) throw new Error('需要登录并开启云同步');
       const { error } = await c.from('push_subscriptions').insert({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth });
       if (error && error.code !== '23505') throw error; // 23505: this endpoint is already saved
       await show();

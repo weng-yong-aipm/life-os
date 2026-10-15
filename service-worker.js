@@ -157,7 +157,7 @@ self.addEventListener('push', (e) => {
 function classifyCheckinResult(r) {
   if (typeof r !== 'number') return 'retry';
   if (r >= 200 && r < 300) return 'ok';
-  if (r >= 400 && r < 500) return 'expired';
+  if (r === 400 || r === 403) return 'expired';
   return 'retry';
 }
 

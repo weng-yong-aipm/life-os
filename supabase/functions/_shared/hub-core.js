@@ -45,6 +45,9 @@ export function evaluateDrift({ today, checkins, since }) {
 }
 
 export function syncNotice({ status, now }) {
+  // Failure first: a first run that fails has ok=false and no synced_at, and
+  // its line-numbered error is the one thing the owner needs to see.
+  if (status && !status.ok && status.error) return `目标数据同步失败：${String(status.error).slice(0, 80)}`;
   if (!status || !status.synced_at) return '目标数据从未同步';
   if (!status.ok) return `目标数据同步失败：${String(status.error ?? '').slice(0, 80)}`;
   const age = daysBetween(localDay(new Date(status.synced_at)), localDay(now));
